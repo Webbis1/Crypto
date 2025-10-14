@@ -1,98 +1,134 @@
+from core import KuCoinMonitor, KuCoinTrader, BitgetBalanceWatcher, BitgetTrader
 from config import api_keys
-from core import *
-import socket
-import json
-import ccxt
+import asyncio
+import datetime
 
-
-SOCKET_PATH = '/tmp/my_socket'
-
-
-def send_json_request(data):
-    """Отправка структурированных данных в формате JSON"""
-    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+async def balancerKuCoin():
+    start_time = None
+    first_operation_done = False
     
     try:
-        client.connect(SOCKET_PATH)
+        async with KuCoinMonitor.KuCoinBalanceWatcher(
+            api_key=api_keys['kucoin']['api_key'],
+            secret=api_keys['kucoin']['api_secret'],
+            password=api_keys['kucoin']['password']
+        ) as monitor:
+            trader = KuCoinTrader.KuCoinTrader(
+                api_key=api_keys['kucoin']['api_key'],
+                secret=api_keys['kucoin']['api_secret'],
+                password=api_keys['kucoin']['password']
+            )
+            
+            async for asset in monitor.receive_all():
+                current_time = datetime.datetime.now()
+                timestamp = current_time.strftime("%H:%M:%S.%f")[:-3]  # Формат: ЧЧ:ММ:СС.ммм
+                
+                # Проверяем, не прошло ли 30 секунд после первой операции
+                if first_operation_done and start_time:
+                    if asyncio.get_event_loop().time() - start_time >= 30:
+                        print(f"[{timestamp}] ⏰ 30 seconds passed after first operation. Stopping.")
+                        break
+                
+                # print(f"[{timestamp}] Updated asset: {asset.currency} = {asset.amount}")
+                
+                if asset.currency == 'USDT' and asset.amount > 2:
+                    selling = asset
+                    asset.amount -= 1
+                    buying = 'CELR'
+                    print(f"[{timestamp}] Attempting to trade {selling.amount} {selling.currency} for {buying}")
+                    order = await trader.trade(selling, buying)
+                    if order:
+                        print(f"[{timestamp}] Trade successful:")
+                        # Засекаем время после первой успешной операции
+                        if not first_operation_done:
+                            start_time = asyncio.get_event_loop().time()
+                            first_operation_done = True
+                            current_op_time = datetime.datetime.now()
+                            op_timestamp = current_op_time.strftime("%H:%M:%S.%f")[:-3]
+                            print(f"[{op_timestamp}] ⏱️ First operation completed. Running for 30 seconds.")
+                    else:
+                        print(f"[{timestamp}] Trade failed or no order returned.")
+                
+                # Продаем все другие валюты в USDT
+                elif asset.currency != 'USDT' and asset.amount > 0:
+                    selling = asset
+                    buying = 'USDT'
+                    print(f"[{timestamp}] 🔄 Selling all {asset.amount} {asset.currency} for USDT")
+                    order = await trader.trade(selling, buying)
+                    if order:
+                        print(f"[{timestamp}] ✅ Sold {asset.currency} successfully: ")
+                        # Засекаем время после первой успешной операции
+                        if not first_operation_done:
+                            start_time = asyncio.get_event_loop().time()
+                            first_operation_done = True
+                            current_op_time = datetime.datetime.now()
+                            op_timestamp = current_op_time.strftime("%H:%M:%S.%f")[:-3]
+                            print(f"[{op_timestamp}] ⏱️ First operation completed. Running for 30 seconds.")
+                    else:
+                        print(f"[{timestamp}] ❌ Failed to sell {asset.currency}")
+                
+                # Добавляем небольшую задержку между итерациями
+                await asyncio.sleep(0.1)
+                            
+    except asyncio.CancelledError:
+        current_time = datetime.datetime.now()
+        timestamp = current_time.strftime("%H:%M:%S.%f")[:-3]
+        print(f"[{timestamp}] Program terminated gracefully.")
         
-        message = json.dumps(data)
-        client.sendall(message.encode())
-        
-        response = b""
-        while True:
-            chunk = client.recv(1024)
-            if not chunk:
-                break
-            response += chunk
-            if len(chunk) < 1024:
-                break
-        
-        if response:
-            return json.loads(response.decode())
-        return None
-        
-    except Exception as e:
-        print(f"Ошибка: {e}")
-        return None
-    finally:
-        client.close()
+async def balancerBitGet():
 
-def get_exchange_from_str(exchange: str) -> ccxt.Exchange:
-    """Получить объект биржи по строковому идентификатору"""
-    exchange = exchange.lower()
-    if exchange == 'binance':
-        return ccxt.binance({
-            'apiKey': api_keys['binance']['api_key'],
-            'secret': api_keys['binance']['api_secret'],
-        })
-    elif exchange == 'okx':
-        return ccxt.okx({
-            'apiKey': api_keys['okx']['api_key'],
-            'secret': api_keys['okx']['api_secret'],
-            'password': api_keys['okx']['password'],
-        })
-    elif exchange == 'bitget':
-        return ccxt.bitget({
-            'apiKey': api_keys['bitget']['api_key'],
-            'secret': api_keys['bitget']['api_secret'],
-            'password': api_keys['bitget']['password'],
-        })
-    elif exchange == 'gate':
-        return ccxt.gate({
-            'apiKey': api_keys['gate']['api_key'],
-            'secret': api_keys['gate']['api_secret'],
-        })
+    try:
+        async with BitgetBalanceWatcher.BitgetBalanceWatcher(
+            api_key=api_keys['bitget']['api_key'],
+            secret=api_keys['bitget']['api_secret'],
+            password=api_keys['bitget']['password']
+        ) as monitor:
+            trader = BitgetTrader.BitgetTrader(
+                api_key=api_keys['bitget']['api_key'],
+                secret=api_keys['bitget']['api_secret'],
+                password=api_keys['bitget']['password']
+            )
+            
+            async for asset in monitor.receive_all():
+                current_time = datetime.datetime.now()
+                timestamp = current_time.strftime("%H:%M:%S.%f")[:-3]
+                
+                if asset.currency == 'USDT' and asset.amount > 2:
+                    selling = asset
+                    asset.amount -= 1
+                    buying = 'CELR'
+                    print(f"[{timestamp}] Attempting to trade {selling.amount} {selling.currency} for {buying}")
+                    
+                    # Запускаем торговлю в фоне, не блокируя получение следующих ассетов
+                    asyncio.create_task(_execute_trade(trader, selling, buying, timestamp))
+                
+                elif asset.currency != 'USDT' and asset.amount > 200:
+                    selling = asset
+                    buying = 'USDT'
+                    print(f"[{timestamp}] 🔄 Selling all {asset.amount} {asset.currency} for USDT")
+                    
+                    # Запускаем в фоне
+                    asyncio.create_task(_execute_trade(trader, selling, buying, timestamp))
+                    
+
+                                
+    except asyncio.CancelledError:
+        current_time = datetime.datetime.now()
+        timestamp = current_time.strftime("%H:%M:%S.%f")[:-3]
+        print(f"[{timestamp}] Program terminated gracefully.")
+
+async def _execute_trade(trader, selling, buying, timestamp):
+    """Выполняет торговую операцию в фоне"""
+    order = await trader.trade(selling, buying)
+    if order:
+        print(f"[{timestamp}] ✅ Trade successful for {selling.currency} -> {buying}")
     else:
-        raise ValueError(f"Неизвестная биржа: {exchange}")
-
+        print(f"[{timestamp}] ❌ Trade failed for {selling.currency} -> {buying}")
 
 
 if __name__ == "__main__":
-    message = input("Введите сообщение: ")
-    data = {
-        "command": "greeting",
-        "message": message,
-        "timestamp": "2024-01-01 12:00:00"
-    }
-    
-    response = send_json_request(data)
-    if response:
-        print(f"JSON ответ: {response}")
-        if response['buy']:
-            print("Можно покупать")
-            source = get_exchange_from_str(response['source'])
-            endpoint = get_exchange_from_str(response['endpoint'])
-            currency = response['currency']
-            network = response['network']
-            async with transaction(source=source, endpoint=endpoint, currency=currency, network=network) as tx:
-                await tx.initialize()
-                print(f"Депозитный адрес: {tx.deposit_address['address']} в сети {tx.deposit_address['network']}")
-                print(f"Статус транзакции: {tx.status}")
-                # Пример покупки
-                try:
-                    order = await tx.buy(quantity=0.001, stop_price=30000)
-                    print(f"Ордер на покупку создан: {order}")
-                except Exception as e:
-                    print(f"Ошибка при покупке: {e}")
-            
-    
+    try:
+        asyncio.run(balancerBitGet())
+        pass
+    except KeyboardInterrupt:
+        print("\nExecution interrupted by user.")

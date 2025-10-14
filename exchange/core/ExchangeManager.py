@@ -1,47 +1,35 @@
 import socket
 import json
-from typing import Dict, Optional, Any, AsyncIterator
+from typing import Dict, Optional, Any, AsyncIterator, List
 from typing import Dict
 import asyncio
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
-@dataclass
-class Assets:
-    currency: str
-    amount: float
-
-@dataclass
-class Destination:
-    address: str
-    network: str
-
-class BalanceMonitor(ABC):
-    @abstractmethod
-    async def receive_all(self) -> AsyncIterator[Assets]:
-        pass
-
+from Types import Assets, Destination, BalanceMonitor, Trader, Courier
+    
 
 class ExchangeManager:
     
     SOCKET_PATH = '/tmp/my_socket'
     BUFFER_SIZE = 4096
     
-    def __init__(self, name: str, balanceMonitor: BalanceMonitor, limit: int = 5):
+    def __init__(self, name: str, balanceMonitor: BalanceMonitor, trader: Trader, courier: Courier, limit: int = 5):
         self.limit = limit
         self.name = name
         self.balanceMonitor = balanceMonitor
         self.reserve: Dict[str, float] = {}
+        self.trader = trader
+        self.courier = courier
         self._running = True
      
-    async def start_monitoring(self):
-        asyncio.create_task(self._balance_monitoring_loop())
-    
+    #private methods
     async def _balance_monitoring_loop(self):
-        async for asset_update in self.balance_monitor.receive_all():
-            if not self._running:
-                break
-            await self._process_asset_update(asset_update)
+        async with self.balance_monitor as monitor:
+            print("Запуск мониторинга баланса...")
+            async for asset_update in monitor.receive_all():
+                if not self._running:
+                    break
+                await self._process_asset_update(asset_update)
+            print("Мониторинг баланса остановлен.")
     
     async def _process_asset_update(self, asset_update: Assets):
         currency = asset_update.currency
@@ -113,7 +101,8 @@ class ExchangeManager:
             raise ValueError("Нет информации о покупке в ответе сервера")
         
         # TODO: добавить контроль лимита
-        await self.trade(assets, response['buying'])
+        await self.trader.trade(assets, response['buying'])
+
 
     async def _handle_transfer(self, response: Dict[str, Any], assets: Assets):
         destination_info = response.get('destination', {})
@@ -125,7 +114,8 @@ class ExchangeManager:
             address=destination_info['address'],
             network=destination_info['network']
         )
-        await self.transfer(assets, destination)
+        await self.courier.transfer(assets, destination)
+        
 
     async def _handle_wait(self, response: Dict[str, Any], assets: Assets):
         if 'time' not in response:
@@ -139,13 +129,21 @@ class ExchangeManager:
         self._running = False
         print("Получена команда выключения")    
           
-    # перевод средств
-    async def transfer(self, celling: Assets, destination: Destination):
-        pass
+    async def __aenter__(self):
+        balance = await self.balanceMonitor.curent_balance()
+        for asset in balance:
+            await self._process_asset_update(asset)
+        
+        await self.start_monitoring()
+        return self
 
-    # продажа средств
-    async def trade(self, celling: Assets, buying: str): 
-        pass
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.stop()
+    
+    # public methods
+    
+    async def start_monitoring(self):
+        asyncio.create_task(self._balance_monitoring_loop())
 
     async def consultation(self, currency: str) -> Optional[Dict[str, Any]]:
         data = {
@@ -156,10 +154,3 @@ class ExchangeManager:
         
     async def stop(self):
         self._running = False
-    
-    async def __aenter__(self):
-        await self.start_monitoring()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.stop()

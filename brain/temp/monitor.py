@@ -1,8 +1,8 @@
 from __future__ import annotations
 import asyncio
-from kucoin_ws import KuCoinWS
-from bitget_ws import BitGetWS
-from generic_ws import GenericExchangeWS
+from brain.temp.kucoin_ws import KuCoinWS
+from brain.temp.bitget_ws import BitGetWS
+from brain.temp.generic_ws import GenericExchangeWS
 from Types.ticker import TickerData
 from collections import defaultdict
 from Types.base_exchange import BaseExchangeWS

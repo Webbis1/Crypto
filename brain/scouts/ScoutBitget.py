@@ -24,17 +24,3 @@ class ScoutBitget(Scout):
                     print(e)
                     # stop the loop on exception or leave it commented to retry
                     # raise e
-
-async def main():
-    scout = ScoutBitget()
-
-    kraken = ccxtpro.kraken({'newUpdates': True})
-    bitget = ccxtpro.bitget()
-    try:
-        await scout.watchOrderBook(bitget, 'BTC/USDT')
-    except asyncio.CancelledError:
-        print("\nGracefully shutting down...")
-    finally:
-        await bitget.close()
-
-run(main())

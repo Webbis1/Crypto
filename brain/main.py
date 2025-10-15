@@ -2,7 +2,8 @@ from Types import *
 from Analyst import Analyst
 from Guide import Guide
 from tabulate import tabulate
-
+from asyncio import run
+import asyncio
 
 exchange_list: list[Exchange] = [Exchange('bitget'), Exchange('kucoin'), Exchange('gate'), Exchange('bybit'), Exchange('okx')]
 coin_list: list[Coin] = [
@@ -424,3 +425,6 @@ analyst: Analyst = Analyst(scout=scout_head, guide=guide)
 async def main():
     async with analyst as anal:
         anal.analyse(exchange_list[0], coin_list[5])
+
+
+run(main())

@@ -2,14 +2,23 @@ import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
-from ..Types import Assets, Scout
+from ..Types import Assets, Scout, Coin
 
 class ScoutGate(Scout):
-    async def watch_tickers(self, exchange, symbol, limit=10, params={}):
-        if exchange.has['watchTickers']:
+    def __init__(self):
+        self.exchange = ccxtpro.gate()
+        self.coins = list(set(Coin.get_all_coin_names_by_excange()).intersection(set(self.get_exhange_coins_list())))
+
+    def get_exhange_coins_list (self):
+        self.exchange.load_markets()
+
+        return self.exchange.markets
+
+    async def watch_tickers(self, limit=10, params={}):
+        if self.exchange.has['watchTickers']:
             while True:
                 try:
-                    tickers = await exchange.watch_tickers([symbol], params)
+                    tickers = await self.exchange.watch_tickers(self.coins, params)
                     for symbol, data in tickers.items():
                         try:
                             bid = float(data.get('bid') or 0.0)

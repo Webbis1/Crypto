@@ -4,7 +4,7 @@ from typing import Dict, Optional, Any, AsyncIterator, List
 import asyncio
 from sortedcontainers import SortedList, SortedDict
 
-USDT = Coin("USDT", "ERC20")
+
 
 class Analyst:
     def __init__(self, scout: ScoutHead, guide: Guide, threshold: float = 2):
@@ -16,7 +16,7 @@ class Analyst:
         self.sorted_coin: SortedDict[Coin, tuple[Exchange, Exchange, float]] = SortedDict(key=lambda coin_data: coin_data[1][2])
     
     async def analyse(self, exchange: Exchange, coin: Coin):
-        if coin == USDT: #узкое место, не уверен в синтаксисе 
+        if coin == 1: 
             await self._usdt_analyse(exchange)
         else:
             await self._other_analyse(exchange, coin)

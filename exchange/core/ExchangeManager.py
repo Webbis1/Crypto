@@ -12,9 +12,9 @@ class ExchangeManager:
     SOCKET_PATH = '/tmp/my_socket'
     BUFFER_SIZE = 4096
     
-    def __init__(self, name: str, balanceMonitor: BalanceMonitor, trader: Trader, courier: Courier, limit: int = 5):
+    def __init__(self, exchange_id: int, balanceMonitor: BalanceMonitor, trader: Trader, courier: Courier, limit: int = 5):
         self.limit = limit
-        self.name = name
+        self.exchange_id:int = exchange_id
         self.balanceMonitor = balanceMonitor
         self.reserve: Dict[str, float] = {}
         self.trader = trader
@@ -145,10 +145,10 @@ class ExchangeManager:
     async def start_monitoring(self):
         asyncio.create_task(self._balance_monitoring_loop())
 
-    async def consultation(self, currency: str) -> Optional[Dict[str, Any]]:
+    async def consultation(self, currency: int) -> Optional[Dict[str, Any]]:
         data = {
-            "name": self.name,
-            "currency": currency
+            "exchange_id": self.exchange_id,
+            "coin_id": currency
         }
         return self._send_json_request(data)
         

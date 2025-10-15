@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict
-from .Types import Coin, Exchange
+from Types import Coin, Exchange
 
 
 @dataclass

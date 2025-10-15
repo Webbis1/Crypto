@@ -1,5 +1,5 @@
-from .Types import Assets, ScoutHead, Coin, Exchange
-from .Guide import Guide
+from Types import Assets, ScoutHead, Coin, Exchange
+from Guide import Guide
 from typing import Dict, Optional, Any, AsyncIterator, List
 import asyncio
 from sortedcontainers import SortedList, SortedDict

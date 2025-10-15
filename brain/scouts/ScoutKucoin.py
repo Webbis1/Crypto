@@ -4,7 +4,7 @@ import asyncio
 import json
 from types import Assets, Scout
 
-class ScoutBitget(Scout):
+class ScoutKucoin(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):
         if exchange.has['watchOrderBookForSymbols']:
             while True:
@@ -15,29 +15,12 @@ class ScoutBitget(Scout):
                             bid = float(data.get('bid') or 0.0)
                             ask = float(data.get('ask') or 0.0)
 
-                            #yield Assets(symbol, ask)
+                            yield Assets(symbol, ask)
 
-                            
-                            print('Coin: ' + str(symbol) + ' ASK: ' + str(ask) + ' BID: ' + str(bid))
+                            #print('Coin: ' + str(symbol) + ' ASK: ' + str(ask) + ' BID: ' + str(bid))
                         except Exception:
                             continue
                 except Exception as e:
                     print(e)
                     # stop the loop on exception or leave it commented to retry
                     # raise e
-
-#'BTC/USDT', 'ETH/USDT'
-
-async def main():
-    scout = ScoutBitget()
-
-    kraken = ccxtpro.kraken({'newUpdates': True})
-    bitget = ccxtpro.bitget()
-    try:
-        await scout.watchOrderBook(bitget, 'BTC/USDT')
-    except asyncio.CancelledError:
-        print("\nGracefully shutting down...")
-    finally:
-        await bitget.close()
-
-run(main())

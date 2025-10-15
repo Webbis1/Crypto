@@ -6,5 +6,5 @@ from .Exchange import Exchange
 
 class Scout(ABC):
     @abstractmethod
-    async def watchOrderBook(self) -> AsyncIterator[tuple[Exchange, Assets]]:
+    async def watch_tickers(self) -> AsyncIterator[tuple[Exchange, Assets]]:
         pass

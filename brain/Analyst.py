@@ -14,7 +14,8 @@ class Analyst:
         self.guide = guide
         self.coin_locks: Dict[Coin, asyncio.Lock] = {}
         self.sorted_coin: SortedDict[Coin, tuple[Exchange, Exchange, float]] = SortedDict(key=lambda coin_data: coin_data[1][2])
-    async def analyse(self, exchange: str, coin: Coin):
+    
+    async def analyse(self, exchange: Exchange, coin: Coin):
         if coin == USDT: #узкое место, не уверен в синтаксисе 
             await self._usdt_analyse(exchange)
         else:
@@ -30,7 +31,7 @@ class Analyst:
                 # перевод на buy_exchange
                 pass
     
-    async def _other_analyse(self, current_exchange: str, coin: Coin):
+    async def _other_analyse(self, current_exchange: Exchange, coin: Coin):
         buy_exchange = current_exchange
         peak_point: float = -float('inf')
         sell_exchange: Exchange = None

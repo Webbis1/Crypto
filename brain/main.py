@@ -415,10 +415,12 @@ def print_sell_commission_table(sell_commission: dict[Coin, dict[Exchange, float
 
 # print_sell_commission_table(sell_commission)
 
-# scout_head: ScoutHead = ScoutHead()
-guide: Guide = Guide()
+scout_head: ScoutHead = ScoutHead()
+guide: Guide = Guide(sell_commission=sell_commission, buy_commission=buy_commission, transfer_commission=transfer_commission, transfer_time=transfer_time)
 
 
-# analyst: Analyst = Analyst(scout_head, guide)
+analyst: Analyst = Analyst(scout=scout_head, guide=guide)
 
-
+async def main():
+    async with analyst as anal:
+        anal.analyse(exchange_list[0], coin_list[5])

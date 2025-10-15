@@ -2,7 +2,7 @@ import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
-from types import Assets, Scout
+from ..Types import Assets, Coin, Scout
 
 class ScoutBitget(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):

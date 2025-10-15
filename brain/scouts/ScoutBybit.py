@@ -2,17 +2,12 @@ import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
-from ..Types import Assets, Scout, Coin
+from ..Types import Assets, Scout
 
 class ScoutBybit(Scout):
     def __init__(self):
         self.exchange = ccxtpro.bybit()
-        self.coins = list(set(Coin.get_all_coin_names_by_excange()).intersection(set(self.get_exhange_coins_list())))
-
-    def get_exhange_coins_list (self):
-        self.exchange.load_markets()
-
-        return self.exchange.markets
+        self.coins = self.get_intersection_coins()
 
     async def watch_tickers(self, limit=10, params={}):
         if self.exchange.has['watchTickers']:

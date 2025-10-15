@@ -379,6 +379,14 @@ transfer_commission: dict[Coin, dict[Exchange, dict[Exchange, float]]] = {
     } for coin in coin_list
 }
 
+transfer_time: dict[Coin, dict[Exchange, dict[Exchange, float]]] = {
+    coin: {
+        exchange_from: {
+            exchange_to: 5.0 for exchange_to in exchange_list
+        } for exchange_from in exchange_list
+    } for coin in coin_list
+}
+
 def print_sell_commission_table(sell_commission: dict[Coin, dict[Exchange, float]]):
     # Собираем все уникальные биржи
     all_exchanges = set()

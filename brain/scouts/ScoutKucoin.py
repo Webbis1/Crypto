@@ -6,7 +6,7 @@ from ..Types import Assets, Scout
 
 class ScoutKucoin(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):
-        if exchange.has['watchOrderBookForSymbols']:
+        if exchange.has['watchTickers']:
             while True:
                 try:
                     tickers = await exchange.watch_tickers([symbol], params)
@@ -16,7 +16,6 @@ class ScoutKucoin(Scout):
                             ask = float(data.get('ask') or 0.0)
 
                             yield Assets(symbol, ask)
-                            
                         except Exception:
                             continue
                 except Exception as e:

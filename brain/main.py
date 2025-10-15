@@ -4,9 +4,18 @@ from Guide import Guide
 from tabulate import tabulate
 from asyncio import run
 import asyncio
+from Core.ResponseServer import AsyncResponseServer
 
-exchange_list: list[Exchange] = [Exchange('bitget'), Exchange('kucoin'), Exchange('gate'), Exchange('bybit'), Exchange('okx')]
+exchange_list = [
+    Exchange('bitget'),
+    Exchange('kucoin'), 
+    Exchange('gate'),
+    Exchange('bybit'),
+    Exchange('okx')
+]
+
 coin_list: list[Coin] = [
+    Coin('USDT', 'bep20'),
     Coin('BTC', 'bep20'),
     Coin('BTC', 'erc20'),
     Coin('BTC', 'trc20'),
@@ -428,3 +437,10 @@ async def main():
 
 
 run(main())
+
+if __name__ == "__main__":
+    async def main():
+        server = AsyncResponseServer()
+        await server.start_async_server()
+    
+    asyncio.run(main())

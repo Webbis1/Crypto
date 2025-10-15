@@ -2,7 +2,7 @@ import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
-from types import Assets, Scout
+from ..Types import Assets, Scout
 
 class ScoutKucoin(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):
@@ -16,8 +16,7 @@ class ScoutKucoin(Scout):
                             ask = float(data.get('ask') or 0.0)
 
                             yield Assets(symbol, ask)
-
-                            #print('Coin: ' + str(symbol) + ' ASK: ' + str(ask) + ' BID: ' + str(bid))
+                            
                         except Exception:
                             continue
                 except Exception as e:

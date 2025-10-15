@@ -17,16 +17,19 @@ class Analyst:
     
     async def analyse(self, exchange: Exchange, coin: Coin):
         if coin == 1: 
-            await self._usdt_analyse(exchange)
+            return await self._usdt_analyse(exchange)
         else:
-            await self._other_analyse(exchange, coin)
+            return await self._other_analyse(exchange, coin)
         
     async def _usdt_analyse(self, exchange: Exchange):
         worst_coin, (buy_exchange, _, worst_benefit) = self.sorted_coin.peekitem(-1)
         if(worst_benefit >= self.threshold):
             if exchange == buy_exchange:
                 # покупка worst_coin
-                pass
+                answer = {
+                    'recommendation': "trade",
+                    
+                }
             else:
                 # перевод на buy_exchange
                 pass

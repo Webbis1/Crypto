@@ -6,7 +6,7 @@ from ..Types import Assets, Scout
 
 class ScoutBitget(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):
-        if exchange.has['watchOrderBookForSymbols']:
+        if exchange.has['watchTickers']:
             while True:
                 try:
                     tickers = await exchange.watch_tickers([symbol], params)
@@ -16,27 +16,9 @@ class ScoutBitget(Scout):
                             ask = float(data.get('ask') or 0.0)
 
                             yield Assets(symbol, ask)
-
-                            #print('Coin: ' + str(symbol) + ' ASK: ' + str(ask) + ' BID: ' + str(bid))
                         except Exception:
                             continue
                 except Exception as e:
                     print(e)
                     # stop the loop on exception or leave it commented to retry
                     # raise e
-
-#'BTC/USDT', 'ETH/USDT'
-
-async def main():
-    scout = ScoutBitget()
-
-    kraken = ccxtpro.kraken({'newUpdates': True})
-    bitget = ccxtpro.bitget()
-    try:
-        await scout.watch_tickers(bitget, 'ETH/USDT')
-    except asyncio.CancelledError:
-        print("\nGracefully shutting down...")
-    finally:
-        await bitget.close()
-
-run(main())

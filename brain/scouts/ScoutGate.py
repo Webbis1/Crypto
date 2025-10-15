@@ -4,7 +4,7 @@ import asyncio
 import json
 from ..Types import Assets, Scout
 
-class ScoutKucoin(Scout):
+class ScoutGate(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):
         if exchange.has['watchTickers']:
             while True:

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from .Coin import Coin
+
 
 @dataclass
 class Assets:
-    currency: str
+    currency: Coin
     amount: float

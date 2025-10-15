@@ -18,15 +18,29 @@ async def watchOrderBook(exchange, symbol, limit=10, params={}):
     if exchange.has['watchOrderBookForSymbols']:
         while True:
             try:
-                tickers = await exchange.watch_tickers(['BTC/USDT', 'ETH/USDT'], params)
+                tickers = await exchange.watch_tickers(['BTCfff/USDT'], params)
+
                 print(exchange.iso8601(exchange.milliseconds()), tickers)
             except Exception as e:
                 print(e)
                 # stop the loop on exception or leave it commented to retry
                 # raise e
 
+async def check_symbol_exists_on_bitget(symbol: str):
+    exchange = ccxtpro.bitget()
+    try:
+        await exchange.load_markets()
+
+
+        print(list(set(exchange.markets).intersection(set(['LUMIA/USDT', 'BTC/USDT']))))
+    finally:
+        await exchange.close()
+
 
 async def main():
+    await check_symbol_exists_on_bitget('BTC/USDT')
+
+    '''
     kraken = ccxtpro.kraken({'newUpdates': True})
     bitget = ccxtpro.bitget()
     try:
@@ -35,6 +49,7 @@ async def main():
         print("\nGracefully shutting down...")
     finally:
         await bitget.close()
+        '''
 
 run(main())
 

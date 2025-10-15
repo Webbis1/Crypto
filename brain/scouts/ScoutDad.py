@@ -1,9 +1,4 @@
-from ..Types import ScoutHead, Scout, Coin
-from ScoutBitget import ScoutBitget
-from ScoutBybit import ScoutBybit
-from ScoutGate import ScoutGate
-from ScoutKucoin import ScoutKucoin
-from ScoutOkx import ScoutOkx
+from ..Types import ScoutHead, Scout, Assets, Exchange
 from asyncio import Queue
 
 '''
@@ -13,13 +8,20 @@ from asyncio import Queue
 '''
 
 class ScoutDad(ScoutHead):
-    def __init__(self, scouts: list[Scout]):
+    def __init__(self, scouts: tuple[str, Scout]):
+        '''scouts: (имяБиржы, объект Scout)'''
+
         self.scouts: Scout = scouts
-        self.queue = Queue()
+        self.queue: Queue = Queue()
 
     async def coin_update(self):
-        
+        for exchange_name, scout in self.scouts:
+            async with scout:
+                assets: Assets = await scout.watch_tickers()
+                exchange: Exchange = Exchange()
+                exchange.name = exchange_name
 
+                yield (exchange, assets)
 
 
 scout_data = ScoutDad()

@@ -6,5 +6,5 @@ from .Exchange import Exchange
 
 class Scout(ABC):
     @abstractmethod
-    async def watch_tickers(self) -> AsyncIterator[Assets]:
+    async def watch_tickers(self, limit=10, params={}) -> AsyncIterator[Assets]:
         pass

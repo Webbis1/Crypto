@@ -2,7 +2,7 @@ import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
-from types import Assets, Scout
+from ..Types import Assets, Scout
 
 class ScoutBitget(Scout):
     async def watch_tickers(self, exchange, symbol, limit=10, params={}):
@@ -15,10 +15,9 @@ class ScoutBitget(Scout):
                             bid = float(data.get('bid') or 0.0)
                             ask = float(data.get('ask') or 0.0)
 
-                            #yield Assets(symbol, ask)
+                            yield Assets(symbol, ask)
 
-                            
-                            print('Coin: ' + str(symbol) + ' ASK: ' + str(ask) + ' BID: ' + str(bid))
+                            #print('Coin: ' + str(symbol) + ' ASK: ' + str(ask) + ' BID: ' + str(bid))
                         except Exception:
                             continue
                 except Exception as e:
@@ -34,7 +33,7 @@ async def main():
     kraken = ccxtpro.kraken({'newUpdates': True})
     bitget = ccxtpro.bitget()
     try:
-        await scout.watchOrderBook(bitget, 'BTC/USDT')
+        await scout.watch_tickers(bitget, 'ETH/USDT')
     except asyncio.CancelledError:
         print("\nGracefully shutting down...")
     finally:

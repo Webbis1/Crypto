@@ -71,7 +71,7 @@ class Coin:
         return coin_id in cls._registry
     
     @classmethod
-    def get_all_coin_names_by_excange(exchange: 'Exchange') ->list[str]:
+    def get_all_coin_names() ->list[str]:
         return [coin.name for coin in Coin.get_all_coins()]
     
     

@@ -36,6 +36,12 @@ class Coin:
     def __hash__(self) -> int:
         return self.id 
     
+    def set_name(self, name):
+        self.name = name
+
+    def set_network(self, network):
+        self.network = network
+
     # Классовые методы для работы с реестром
     
     

@@ -28,11 +28,16 @@ class Analyst:
                 # покупка worst_coin
                 answer = {
                     'recommendation': "trade",
-                    
+                    'buying': worst_coin.name
                 }
+                return answer
             else:
                 # перевод на buy_exchange
-                pass
+                answer = {
+                    'recommendation': "transfer",
+                    'destination': buy_exchange.name
+                }
+                return answer
     
     async def _other_analyse(self, current_exchange: Exchange, coin: Coin):
         buy_exchange = current_exchange
@@ -51,14 +56,26 @@ class Analyst:
         
         if current_exchange == sell_exchange:
             # продажа
-            pass
+            answer = {
+                    'recommendation': "trade",
+                    'buying': 'USDT'
+                }
+            return answer
         else:
             if(peak_point >= self.threshold):   
                 # перевод на sell_exchange
-                pass
+                answer = {
+                    'recommendation': "transfer",
+                    'destination': sell_exchange.name
+                }
+                return answer
             else:
                 # продажа
-                pass
+                answer = {
+                    'recommendation': "trade",
+                    'buying': 'USDT'
+                }
+                return answer
             
         
     

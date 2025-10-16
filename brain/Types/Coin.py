@@ -72,6 +72,6 @@ class Coin:
     
     @classmethod
     def get_all_coin_names_by_excange(exchange: 'Exchange') ->list[str]:
-        return [coin.name for coin in Coin.get_all_coins]
+        return [coin.name for coin in Coin.get_all_coins()]
     
     

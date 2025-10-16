@@ -7,10 +7,10 @@ coin_counter = count(1)
 @dataclass(eq=False)
 class Coin:
     # Статический словарь для хранения всех монет
-    _registry: dict[int, 'Coin'] = {}
+    _registry: dict[int, 'Coin'] = field(default_factory=dict)
     
-    name: str
-    network: str
+    name: str = field(default_factory=str)
+    network: str = field(default_factory=str)
     id: int = field(default_factory=lambda: next(coin_counter))
     
     def __post_init__(self):

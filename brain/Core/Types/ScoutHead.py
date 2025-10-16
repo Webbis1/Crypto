@@ -10,5 +10,5 @@ class ScoutHead(ABC):
         pass
 
     @abstractmethod
-    async def coin_list(self) -> Dict[Coin, Dict[Exchange, float]]:
+    def coin_list(self) -> Dict[Coin, Dict[Exchange, float]]:
         pass

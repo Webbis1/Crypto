@@ -3,12 +3,12 @@ import json
 import os
 import asyncio
 from typing import Dict, Any, Optional, Callable
-from ..Analyst import Analyst
-from ..Types import Exchange, Coin
+from .Analyst import Analyst
+from .Types import Exchange, Coin
 
 
 class AsyncResponseServer:
-    def __init__(self, socket_path: str, processor_instance: Analyst, buffer_size: int = 4096):
+    def __init__(self, processor_instance: Analyst, buffer_size: int = 4096, socket_path: str = '/tmp/my_socket'):
         self.SOCKET_PATH = socket_path
         self.BUFFER_SIZE = buffer_size
         self.processor: Analyst = processor_instance

@@ -4,10 +4,9 @@ import asyncio
 import json
 from ..Types import Assets, Scout
 
-class ScoutGate(Scout):
+class ScoutKucoin(Scout):
     def __init__(self):
-        self.exchange = ccxtpro.gate()
-        self.coins = self.get_intersection_coins()
+        super().__init__('kucoin')
 
     async def watch_tickers(self, limit=10, params={}):
         if self.exchange.has['watchTickers']:

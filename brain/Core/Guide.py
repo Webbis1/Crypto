@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict
-from Types import Coin, Exchange
+from .Types import Coin, Exchange
 
 
 @dataclass
@@ -9,5 +9,5 @@ class Guide:
     buy_commission: Dict[Coin, Dict[Exchange, float]] 
     transfer_commission: Dict[Coin, Dict[Exchange, Dict[Exchange, float]]]
     transfer_time: Dict[Coin, Dict[Exchange, Dict[Exchange, float]]]
-    min_amount: Dict[Coin, Dict[Exchange, float]]
-    max_amount: Dict[Coin, Dict[Exchange, float]]
+    # min_amount: Dict[Coin, Dict[Exchange, float]]
+    # max_amount: Dict[Coin, Dict[Exchange, float]]

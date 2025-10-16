@@ -1,18 +1,26 @@
-from Types import *
-from Analyst import Analyst
-from Guide import Guide
+from Core.Types import *
+from Core.Analyst import Analyst
+from Core.Guide import Guide
 from tabulate import tabulate
 from asyncio import run
 import asyncio
 from Core.ResponseServer import AsyncResponseServer
+from Core.scouts import *
 
-exchange_list = [
-    Exchange('bitget'),
-    Exchange('kucoin'), 
-    Exchange('gate'),
-    Exchange('bybit'),
-    Exchange('okx')
-]
+
+scout_bitget: ScoutBitget = ScoutBitget()
+scout_bybit: ScoutBybit = ScoutBybit()
+scout_gate: ScoutGate = ScoutGate()
+scout_kucoin: ScoutKucoin = ScoutKucoin()
+scout_okx: ScoutOkx = ScoutOkx()
+
+scouts_list: list[tuple['Exchange', 'Scout']]= {
+    (Exchange('bitget'), scout_bitget),
+    (Exchange('bybit'), scout_bybit),
+    (Exchange('gate'), scout_gate),
+    (Exchange('kucoin'), scout_kucoin),
+    (Exchange('okx'), scout_okx)
+}
 
 coin_list: list[Coin] = [
     Coin('USDT', 'bep20'),
@@ -367,33 +375,33 @@ coin_list: list[Coin] = [
 ]
 
 coin_count: int = len(coin_list)
-exchange_count: int = len(exchange_list)
+
 
 sell_commission: dict[Coin, dict[Exchange, float]] = {
     coin: {
-        exchange: 0.001 for exchange in exchange_list
+        exchange: 0.001 for exchange in Exchange.get_all()
     } for coin in coin_list
 }
 
 buy_commission:  dict[Coin, dict[Exchange, float]] = {
     coin: {
-        exchange: 0.001 for exchange in exchange_list
+        exchange: 0.001 for exchange in Exchange.get_all()
     } for coin in coin_list
 }
 
 transfer_commission: dict[Coin, dict[Exchange, dict[Exchange, float]]] = {
     coin: {
         exchange_from: {
-            exchange_to: 1.0 for exchange_to in exchange_list
-        } for exchange_from in exchange_list
+            exchange_to: 1.0 for exchange_to in Exchange.get_all() if exchange_to != exchange_from
+        } for exchange_from in Exchange.get_all()
     } for coin in coin_list
 }
 
 transfer_time: dict[Coin, dict[Exchange, dict[Exchange, float]]] = {
     coin: {
         exchange_from: {
-            exchange_to: 5.0 for exchange_to in exchange_list
-        } for exchange_from in exchange_list
+            exchange_to: 5.0 for exchange_to in Exchange.get_all() if exchange_to != exchange_from
+        } for exchange_from in Exchange.get_all()
     } for coin in coin_list
 }
 
@@ -425,22 +433,21 @@ def print_sell_commission_table(sell_commission: dict[Coin, dict[Exchange, float
 
 # print_sell_commission_table(sell_commission)
 
-scout_head: ScoutHead = ScoutHead()
-guide: Guide = Guide(sell_commission=sell_commission, buy_commission=buy_commission, transfer_commission=transfer_commission, transfer_time=transfer_time)
 
 
-analyst: Analyst = Analyst(scout=scout_head, guide=guide)
-
-async def main():
-    async with analyst as anal:
-        anal.analyse(exchange_list[0], coin_list[5])
 
 
-run(main())
+
 
 if __name__ == "__main__":
     async def main():
-        server = AsyncResponseServer()
+        scout_head: ScoutHead = ScoutDad(scouts_list)
+        guide: Guide = Guide(sell_commission=sell_commission, buy_commission=buy_commission, transfer_commission=transfer_commission, transfer_time=transfer_time)
+
+
+        analyst: Analyst = Analyst(scout=scout_head, guide=guide)
+        server = AsyncResponseServer(analyst)
         await server.start_async_server()
     
     asyncio.run(main())
+    

@@ -4,27 +4,21 @@ import asyncio
 import json
 from ..Types import Assets, Scout
 
-class ScoutBybit(Scout):
+class ScoutGate(Scout):
     def __init__(self):
-        self.exchange = ccxtpro.bybit()
-        self.coins = self.get_intersection_coins()
+        super().__init__('gateio') 
 
     async def watch_tickers(self, limit=10, params={}):
         if self.exchange.has['watchTickers']:
-            while (True):
+            while True:
                 try:
                     tickers = await self.exchange.watch_tickers(self.coins, params)
                     for symbol, data in tickers.items():
                         try:
                             bid = float(data.get('bid') or 0.0)
                             ask = float(data.get('ask') or 0.0)
-                            last_price = float(data.get('lastPrice') or 0.0)
 
-                            if (bid != 0.0 and ask != 0.0):
-                                yield Assets(symbol, ask)
-                            else:
-                                yield Assets(symbol, last_price)
-
+                            yield Assets(symbol, ask)
                         except Exception:
                             continue
                 except Exception as e:

@@ -105,15 +105,9 @@ class ExchangeManager:
 
 
     async def _handle_transfer(self, response: Dict[str, Any], assets: Assets):
-        destination_info = response.get('destination', {})
+        destination = response.get('destination', {})
         
-        if not all(key in destination_info for key in ['address', 'network']):
-            raise ValueError("Недостаточно информации о пункте назначения")
         
-        destination = Destination(
-            address=destination_info['address'],
-            network=destination_info['network']
-        )
         await self.courier.transfer(assets, destination)
         
 

@@ -5,11 +5,15 @@ import json
 from ..Types import Assets, Scout
 
 class ScoutOkx(Scout):
-    async def watch_tickers(self, exchange, symbol, limit=10, params={}):
-        if exchange.has['watchTickers']:
+    def __init__(self):
+        self.exchange = ccxtpro.okx()
+        self.coins = self.get_intersection_coins()
+
+    async def watch_tickers(self, limit=10, params={}):
+        if self.exchange.has['watchTickers']:
             while True:
                 try:
-                    tickers = await exchange.watch_tickers([symbol], params)
+                    tickers = await self.exchange.watch_tickers(self.coins, params)
                     for symbol, data in tickers.items():
                         try:
                             bid = float(data.get('bid') or 0.0)

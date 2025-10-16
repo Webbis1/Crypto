@@ -6,9 +6,9 @@ exchange_counter = count(1)
 @dataclass(eq=False)
 class Exchange:
     # Статическая переменная - реестр всех бирж
-    _registry: dict[int, 'Exchange'] = {}
+    _registry: dict[int, 'Exchange'] = field(default_factory=dict)
     
-    name: str
+    name: str = field(default_factory=str)
     id: int = field(default_factory=lambda: next(exchange_counter))
     
     def __post_init__(self):
@@ -28,6 +28,9 @@ class Exchange:
     
     def __hash__(self) -> int:
         return self.id
+    
+    def set_name(self, name):
+        self.name = name
     
     # Статический метод для получения биржи по ID
     @classmethod

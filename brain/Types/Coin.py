@@ -1,13 +1,15 @@
 from dataclasses import dataclass, field
 from itertools import count
 from .Exchange import Exchange
+from typing import ClassVar
 
 coin_counter = count(1)
 
 @dataclass(eq=False)
 class Coin:
     # Статический словарь для хранения всех монет
-    _registry: dict[int, 'Coin'] = field(default_factory=dict)
+    #_registry: dict[int, 'Coin'] = field(default_factory=dict)
+    _registry: ClassVar[dict[int, 'Coin']] = {}
     
     name: str = field(default_factory=str)
     network: str = field(default_factory=str)
@@ -71,7 +73,7 @@ class Coin:
         return coin_id in cls._registry
     
     @classmethod
-    def get_all_coin_names() ->list[str]:
+    def get_all_coin_names(cls) ->list[str]:
         return [coin.name for coin in Coin.get_all_coins()]
     
     

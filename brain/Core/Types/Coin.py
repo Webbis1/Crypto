@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from itertools import count
 from .Exchange import Exchange
-from typing import ClassVar
+from typing import ClassVar, List
 
 coin_counter = count(1)
 
@@ -44,7 +44,6 @@ class Coin:
 
     # Классовые методы для работы с реестром
     
-    
     @classmethod
     def get_by_id(cls, coin_id: int) -> 'Coin | None':
         """Получить монету по ID"""
@@ -79,7 +78,10 @@ class Coin:
         return coin_id in cls._registry
     
     @classmethod
-    def get_all_coin_names(cls) ->list[str]:
+    def get_all_coin_names(cls) -> list[str]:
         return [coin.name for coin in Coin.get_all_coins()]
     
-    
+    @staticmethod
+    def get_coins_by_names(coin_names: List[str]) -> List['Coin']:
+        """Получить монеты по списку названий"""
+        return [coin for coin in Coin.get_all_coins() if coin.name in coin_names]

@@ -11,7 +11,7 @@ class Scout(ABC):
         super().__init__()
         self.exchange_name = exchange_name
         self.exchange: Optional[ccxtpro.Exchange] = None
-        self._coins: Optional[List[str]] = None
+        self._coins: Optional[List[Coin]] = None
         
     async def initialize(self) -> None:
         """Асинхронная инициализация биржи"""
@@ -53,7 +53,7 @@ class Scout(ABC):
             print(f"Ошибка при получении USDT-пар: {e}")
             return []
     
-    async def get_intersection_coins(self) -> List[str]:
+    async def get_intersection_coins(self) -> List[Coin]:
         """
         Получает пересечение монет из базы данных и доступных на бирже.
         
@@ -61,13 +61,13 @@ class Scout(ABC):
             List[str]: Список общих монет
         """
         try:
-            coin_names = set(Coin.get_all_coin_names())
+            # coin_names = set(Coin.get_all_coin_names())
             exchange_coins = set(self.get_usdt_pairs())
             
-            intersection = coin_names.intersection(exchange_coins)
+            intersection: List[Coin] = Coin.get_coins_by_names(exchange_coins)
             print(f"✅ Найдено {len(intersection)} общих монет на {self.exchange_name}")
             
-            return sorted(list(intersection))
+            return intersection
             
         except Exception as e:
             print(f"Ошибка при поиске пересечения монет: {e}")
@@ -91,7 +91,8 @@ class Scout(ABC):
         try:
             # Create a sync exchange instance for one-time fetching
             sync_exchange = getattr(ccxt, self.exchange_name)()
-            symbols = [f"{coin}/USDT" for coin in self._coins]
+            #TODO: тут все ломается
+            symbols = [f"{coin.name}/USDT" for coin in self._coins]
             
             tickers: dict[str, Any] = sync_exchange.fetch_tickers(symbols, params)
             
@@ -140,7 +141,7 @@ class Scout(ABC):
         """Геттер для coins с проверкой инициализации"""
         if self._coins is None:
             raise RuntimeError("Scout not initialized. Call initialize() first.")
-        return self._coins
+        return [coin.name for coin in self._coins]
     
     async def close(self) -> None:
         """Закрывает соединение с биржей"""

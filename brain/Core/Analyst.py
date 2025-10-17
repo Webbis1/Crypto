@@ -336,6 +336,6 @@ class Analyst:
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        print("rip Anal")
+        print("rip Analyst")
         
 

@@ -23,5 +23,3 @@ class ScoutKucoin(Scout):
                             continue
                 except Exception as e:
                     print(e)
-                    # stop the loop on exception or leave it commented to retry
-                    # raise e

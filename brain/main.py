@@ -8,6 +8,18 @@ from Core.ResponseServer import AsyncResponseServer
 from Core.scouts import *
 
 
+# Добавьте в начало вашего скрипта
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('roi_debug.log'),
+        # logging.StreamHandler()
+    ]
+)
+
 scout_bitget: ScoutBitget = ScoutBitget()
 scout_bybit: ScoutBybit = ScoutBybit()
 scout_gate: ScoutGate = ScoutGate()
@@ -434,20 +446,148 @@ def print_sell_commission_table(sell_commission: dict[Coin, dict[Exchange, float
 # print_sell_commission_table(sell_commission)
 
 
+import sys
+import asyncio
+from datetime import datetime
+from contextlib import asynccontextmanager
 
+@asynccontextmanager
+async def redirect_prints_to_file(filename="app.log", also_to_console=False):
+    original_stdout = sys.stdout
+    original_print = __builtins__.print
+    
+    class AsyncLogger:
+        def __init__(self):
+            self.filename = filename
+            self.also_to_console = also_to_console
+            self.queue = asyncio.Queue()
+            self.worker_task = None
+            self.running = False
+            self.pending_writes = set()
+        
+        async def start(self):
+            self.running = True
+            self.worker_task = asyncio.create_task(self._worker())
+        
+        async def stop(self):
+            """Безопасная остановка с ожиданием завершения всех задач"""
+            self.running = False
+            
+            # Ждем завершения всех pending write задач
+            if self.pending_writes:
+                print(f"Waiting for {len(self.pending_writes)} pending writes...")
+                await asyncio.gather(*self.pending_writes, return_exceptions=True)
+            
+            # Останавливаем worker
+            if self.worker_task:
+                await self.queue.put(None)
+                await asyncio.wait_for(self.worker_task, timeout=5.0)
+        
+        async def _worker(self):
+            with open(self.filename, 'a', encoding='utf-8') as file:
+                while self.running:
+                    try:
+                        text = await asyncio.wait_for(self.queue.get(), timeout=1.0)
+                        if text is None:
+                            break
+                            
+                        if text.strip():
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            file.write(f"[{timestamp}] {text}")
+                            file.flush()
+                        
+                        if self.also_to_console:
+                            original_stdout.write(text)
+                            original_stdout.flush()
+                            
+                    except asyncio.TimeoutError:
+                        continue
+                    except Exception as e:
+                        original_stdout.write(f"Logger error: {e}\n")
+                        original_stdout.flush()
+        
+        async def write(self, text):
+            """Асинхронная запись с отслеживанием задачи"""
+            if self.running:
+                task = asyncio.create_task(self._safe_write(text))
+                self.pending_writes.add(task)
+                task.add_done_callback(self.pending_writes.discard)
+        
+        async def _safe_write(self, text):
+            """Безопасная запись в очередь"""
+            try:
+                await self.queue.put(text)
+            except Exception as e:
+                if self.also_to_console:
+                    original_stdout.write(f"Queue error: {e}\n")
+    
+    logger = AsyncLogger()
+    await logger.start()
+    
+    # Перехватываем print
+    def new_print(*args, **kwargs):
+        text = ' '.join(str(arg) for arg in args) + '\n'
+        # Создаем задачу для асинхронной записи
+        asyncio.create_task(logger.write(text))
+        if also_to_console:
+            original_stdout.write(text)
+            original_stdout.flush()
+    
+    __builtins__.print = new_print
+    
+    try:
+        yield
+    finally:
+        # Дожидаемся завершения логгера
+        await logger.stop()
+        sys.stdout = original_stdout
+        __builtins__.print = original_print
 
+import resource
 
+def set_memory_limit(limit_mb=1024):
+    """Установка лимита памяти в MB"""
+    try:
+        # Конвертируем в байты
+        limit_bytes = limit_mb * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+        print(f"Memory limit set to {limit_mb} MB")
+    except (ValueError, resource.error) as e:
+        print(f"Could not set memory limit: {e}")
 
+ 
+ 
+async def main():
+    try:
+        async with redirect_prints_to_file("server.log") as log_ctx:
+            print("Before ScoutDad context")
+            async with ScoutDad(scouts_list) as scout_head:
+                print(f"Inside ScoutDad context, scout_head: {scout_head}")
+                print(f"ScoutDad type: {type(scout_head)}")
+                
+                guide = Guide(sell_commission=sell_commission, buy_commission=buy_commission, 
+                            transfer_commission=transfer_commission, transfer_time=transfer_time)
+                # print(f"Guide created: {guide}")
+                
+                print("Before Analyst context")
+                try:
+                    async with Analyst(scout=scout_head, guide=guide) as analyst:
+                        print("Analyst is ready")
+                        # ... остальной код
+                except ValueError as e:
+                    print(f"Analyst failed: {e}")
+                    print(f"At time of failure, scout_head: {scout_head}")
+                    raise
+                    server = AsyncResponseServer(analyst)
+                    await server.start_async_server()
+    except KeyboardInterrupt:
+        print("Received interrupt, shutting down...")
+    except Exception as e:
+        print(f"Error in main: {e}")
+        raise
 
 if __name__ == "__main__":
-    async def main():
-        scout_head: ScoutHead = ScoutDad(scouts_list)
-        guide: Guide = Guide(sell_commission=sell_commission, buy_commission=buy_commission, transfer_commission=transfer_commission, transfer_time=transfer_time)
-
-
-        analyst: Analyst = Analyst(scout=scout_head, guide=guide)
-        server = AsyncResponseServer(analyst)
-        await server.start_async_server()
-    
-    asyncio.run(main())
-    
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Program finished")

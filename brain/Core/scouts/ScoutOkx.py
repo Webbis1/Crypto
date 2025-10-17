@@ -2,14 +2,16 @@ import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
+from typing import AsyncIterator
 from ..Types import Assets, Scout
 
 class ScoutOkx(Scout):
     def __init__(self):
         super().__init__('okx')
         
-    async def watch_tickers(self, limit=10, params={}):
+    async def watch_tickers(self, limit=10, params={}) -> AsyncIterator[Assets]:
         if self.exchange.has['watchTickers']:
+
             while True:
                 try:
                     tickers = await self.exchange.watch_tickers(self.coins, params)
@@ -19,9 +21,9 @@ class ScoutOkx(Scout):
                             ask = float(data.get('ask') or 0.0)
 
                             yield Assets(symbol, ask)
+                                
                         except Exception:
                             continue
                 except Exception as e:
                     print(e)
-                    # stop the loop on exception or leave it commented to retry
-                    # raise e
+                    break  

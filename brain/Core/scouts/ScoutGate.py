@@ -1,14 +1,12 @@
-import ccxt.pro as ccxtpro
-from asyncio import run
-import asyncio
-import json
+from typing import List, Dict, Any, AsyncIterator
+import ccxt
 from ..Types import Assets, Scout
 
 class ScoutGate(Scout):
     def __init__(self):
         super().__init__('gateio') 
 
-    async def watch_tickers(self, limit=10, params={}):
+    async def watch_tickers(self, limit: int = 10, params: Dict[str, Any] = {}) -> AsyncIterator[Assets]:
         if self.exchange.has['watchTickers']:
             while True:
                 try:
@@ -17,11 +15,8 @@ class ScoutGate(Scout):
                         try:
                             bid = float(data.get('bid') or 0.0)
                             ask = float(data.get('ask') or 0.0)
-
                             yield Assets(symbol, ask)
-                        except Exception:
+                        except (ValueError, TypeError) as e:
                             continue
                 except Exception as e:
-                    print(e)
-                    # stop the loop on exception or leave it commented to retry
-                    # raise e
+                    print(f"Watch tickers error: {e}")

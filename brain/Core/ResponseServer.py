@@ -43,14 +43,13 @@ class AsyncResponseServer:
                 exchange_id: int = request_json.get('exchange_id')
                 coin_id:int = request_json.get('coin_id')
                 
-                
-                response = await self.processor.analyse(Exchange.get_by_id(exchange_id), Coin.get_by_id(coin_id))
-                
-                # Отправляем ответ
-                response_bytes = json.dumps(response).encode()
-                writer.write(response_bytes)
-                await writer.drain()
-                print(f"Отправлен ответ: {response}")
+                async with self.processor as processor:
+                    response = await processor.analyse(Exchange.get_by_id(exchange_id), Coin.get_by_id(coin_id))
+                    # Отправляем ответ
+                    response_bytes = json.dumps(response).encode()
+                    writer.write(response_bytes)
+                    await writer.drain()
+                    print(f"Отправлен ответ: {response}")
                 
             except json.JSONDecodeError as e:
                 error_response = {

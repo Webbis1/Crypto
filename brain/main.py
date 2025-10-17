@@ -454,7 +454,13 @@ from contextlib import asynccontextmanager
 @asynccontextmanager
 async def redirect_prints_to_file(filename="app.log", also_to_console=False):
     original_stdout = sys.stdout
-    original_print = __builtins__.print
+    # Безопасная версия:
+    if hasattr(__builtins__, 'print'):
+        original_print = __builtins__.print
+    elif 'print' in __builtins__:
+        original_print = __builtins__['print']
+    else:
+        original_print = print 
     
     class AsyncLogger:
         def __init__(self):

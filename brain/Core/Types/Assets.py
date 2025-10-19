@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from .Coin import Coin
+from .Coin2 import Coin
 
 
 @dataclass

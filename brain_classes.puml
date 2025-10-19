@@ -1,0 +1,58 @@
+@startuml
+allow_mixing
+
+struct Coin {
+  #id: int
+  +name: str
+}
+
+struct Exchange {
+  +name: str
+  +coins: list[Coin]
+}
+
+struct Asset {
+  +coin: Coin
+  +price: float
+}
+
+' Развернул связи структур
+Coin <--* Exchange : содержит в coins
+Coin <--* Asset : содержит в coin
+
+interface Scout {
+  + __init__(Exchange)
+  + {async} watch_tickers(): Asset
+  + fetch_tickers_once(): list[Asset]
+}
+
+' Развернул связи Scout
+Exchange <--* Scout : передается в __init__
+Scout --> Asset : возвращает из методов
+
+interface ScoutHead {
+  + __init__(list[Scout])
+  + {async} coin_update(): Asset
+  + coin_list(): dict[Exchange, Asset]
+}
+
+' Развернул связи ScoutHead
+Scout <--* ScoutHead : агрегирует в __init__
+ScoutHead --> Asset : возвращает из методов
+ScoutHead --> Exchange : использует в coin_list
+
+class Analyst {
+  + __init__(ScoutHead)
+}
+
+' Развернул связь Analyst
+ScoutHead <--* Analyst : зависит от
+
+
+class AsyncResponseServer{
+  +__init__(Analyst)
+}
+
+AsyncResponseServer *-up-> Analyst 
+
+@enduml

@@ -1,33 +1,45 @@
+# ScoutBybit.py
 import ccxt.pro as ccxtpro
 from asyncio import run
 import asyncio
 import json
-from ..Types import Assets, Scout
+from ..Types import Assets, Scout, Coin
 
 class ScoutBybit(Scout):
-    def __init__(self):
-        super().__init__('bybit')
-
-
     async def watch_tickers(self, limit=10, params={}):
-        if self.exchange.has['watchTickers']:
-            while (True):
+        print(f"Bybit: starting with {len(self._coins)} coins")
+        
+        if self.ccxt_exchange.has['watchTickers']:
+            while True:
                 try:
-                    tickers = await self.exchange.watch_tickers(self.coins, params)
-                    for symbol, data in tickers.items():
+                    symbols = [f"{coin.name}/USDT" for coin in self._coins]
+                    
+                    # Bybit ограничение - разбиваем на chunks по 10
+                    chunks = [symbols[i:i+10] for i in range(0, len(symbols), 10)]
+                    if len(chunks) > 1:
+                        print(f"Bybit: split into {len(chunks)} chunks")
+                    
+                    for chunk in chunks:
                         try:
-                            bid = float(data.get('bid') or 0.0)
-                            ask = float(data.get('ask') or 0.0)
-                            last_price = float(data.get('lastPrice') or 0.0)
-
-                            if (bid != 0.0 and ask != 0.0):
-                                yield Assets(symbol, ask)
-                            else:
-                                yield Assets(symbol, last_price)
-
-                        except Exception:
+                            tickers = await self.ccxt_exchange.watch_tickers(chunk, params)
+                            print(f"Bybit: received {len(tickers)} tickers")
+                            
+                            for symbol, data in tickers.items():
+                                try:
+                                    base_currency = symbol.split('/')[0]
+                                    coin = self.exchange.get_coin_by_name(base_currency)
+                                    ask = float(data.get('ask') or data.get('lastPrice') or 0.0)
+                                    
+                                    yield Assets(coin, ask)
+                                    print(f"Bybit: yielded {coin.name} = {ask:.6f}")
+                                    
+                                except Exception as e:
+                                    print(f"Bybit: error processing {symbol}: {e}")
+                                    continue
+                        except Exception as e:
+                            print(f"Bybit: chunk error: {e}")
                             continue
+                            
                 except Exception as e:
-                    print(e)
-                    # stop the loop on exception or leave it commented to retry
-                    # raise e
+                    print(f"Bybit: {e}")
+                    await asyncio.sleep(1)

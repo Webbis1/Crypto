@@ -109,12 +109,13 @@ def print_to_html(sorted_coin_dict, title="Coin Data"):
     
     # Добавляем строки таблицы
     for coin, (ex1, ex2, value) in sorted_coin_dict.items():
+        value *= 100
         html += f"""
                 <tr>
                     <td>{coin}</td>
                     <td>{ex1}</td>
                     <td>{ex2}</td>
-                    <td>{value:.2f}</td>
+                    <td>{value:.5f}</td>
                 </tr>
         """
     
@@ -130,18 +131,18 @@ def print_to_html(sorted_coin_dict, title="Coin Data"):
 
 class Analyst:
     def __init__(self, scout: 'ScoutHead', guide: 'Guide', threshold: float = 2):
-        if scout is None:
-            raise ValueError("Scout cannot be None")
-        print(f"[DEBUG] Analyst.__init__ called with scout: {scout}")  # DEBUG
-        print(f"[DEBUG] Scout type: {type(scout)}")  # DEBUG
-        print(f"[DEBUG] Scout id: {id(scout)}")  # DEBUG
+        # if scout is None:
+        #     raise ValueError("Scout cannot be None")
+        # print(f"[DEBUG] Analyst.__init__ called with scout: {scout}")  # DEBUG
+        # print(f"[DEBUG] Scout type: {type(scout)}")  # DEBUG
+        # print(f"[DEBUG] Scout id: {id(scout)}")  # DEBUG
         self.scout: 'ScoutHead' = scout
         
         self.coin_list: Dict[Coin, Dict[Exchange, float]] = {}
         self.threshold = threshold
         self.guide = guide
         
-        print(self.guide)
+        # print(self.guide)
         self.coin_locks: Dict[Coin, asyncio.Lock] = {}
         self.sorted_coin: ValueSortedDict[Coin, tuple[Exchange, Exchange, float]] = ValueSortedDict(lambda value: value[2])
     
@@ -220,14 +221,35 @@ class Analyst:
         except ValueError:
             raise ValueError(f"No exchanges for coin {coin}")
     
-    async def update(self):
-        async with self.scout as scout:
-            async for update_coin in scout.coin_update():
-                coin: Coin = update_coin[1].currency
-                new_price: float = update_coin[1].amount
-                exchange: Exchange = update_coin[0]
-                self.coin_list[coin][exchange] = new_price
-                self.sorted_coin[coin] = await self._coin_culc(coin)
+    async def start_update(self):
+        print("🔄 Analyst: starting data collection")
+        
+        await self.scout.start_monitoring()
+        print("✅ Analyst: monitoring started")
+        
+        update_count = 0
+        async for update_coin in self.scout.coin_update():
+            update_count += 1
+            exchange: Exchange = update_coin[0]
+            coin: Coin = update_coin[1].currency
+            new_price: float = update_coin[1].amount
+            
+            print(f"📊 Analyst: update #{update_count} - {exchange.name}: {coin.name} = {new_price:.6f}")
+            
+            # Обновляем цену
+            self.coin_list[coin][exchange] = new_price
+            print(f"💰 Analyst: price updated for {coin.name} on {exchange.name}")
+            
+            # Пересчитываем монету
+            try:
+                self.sorted_coin[coin]  = await self._coin_culc(coin)
+                print(f"🎯 Analyst: recalculated {coin.name}")
+            except Exception as e:
+                print(f"❌ Analyst: error recalculating {coin.name} - {e}")
+            
+            # Периодический статус
+            if update_count % 10 == 0:
+                print(f"📈 Analyst: processed {update_count} updates total")
     
     async def _coin_culc(self, coin: Coin) -> tuple[Exchange, Exchange, float]:
         async with self.coin_locks[coin]:
@@ -237,7 +259,7 @@ class Analyst:
             
             for exchange in self.coin_list[coin]:
                 benefit = self.__benefit(buy_exchange, exchange, coin)
-                if benefit >= peak_point:
+                if benefit is not None and benefit >= peak_point:
                     sell_exchange = exchange
                     peak_point = benefit
             
@@ -247,92 +269,71 @@ class Analyst:
             return buy_exchange, sell_exchange, peak_point
                 
 
-    def __benefit(self, buy_exchange: Exchange, sell_exchange: Exchange, coin: Coin) -> float:
+    def __benefit(self, buy_exchange: Exchange, sell_exchange: Exchange, coin: Coin) -> float | None:
         try:
-            try:
-                procedure_time = self.guide.transfer_time[coin][buy_exchange][sell_exchange]
-            except (KeyError, TypeError):
-                procedure_time = -1.0
+            # Безопасное получение времени перевода через цепочку get()
+            procedure_time = self.guide.transfer_time.get(coin, {}).get(buy_exchange, {}).get(sell_exchange)
+            
+            # Если данных нет или время невалидно - пропускаем
+            if procedure_time is None or procedure_time <= 0:
+                return None
+                
             roi = self.__roi(buy_exchange, sell_exchange, coin)
             return roi / procedure_time
-        
-        except KeyError as e:
-            raise ValueError(f"Missing transfer time data: {e}") from e
+            
         except ZeroDivisionError:
-            raise ValueError("Transfer time cannot be zero") from None
+            return None
+        except Exception:
+            return None
 
 
     
 
     def __roi(self, buy_exchange: Exchange, sell_exchange: Exchange, coin: Coin) -> float:
-        logger = logging.getLogger(__name__)
-        
         try:
-            logger.info(f"Calculating ROI for: coin={coin}, buy={buy_exchange}, sell={sell_exchange}")
-            
             # Получаем комиссии
             buy_commission = self.guide.buy_commission[coin][buy_exchange]
             sale_commission = self.guide.sell_commission[coin][sell_exchange]
-            logger.info(f"Commissions - buy: {buy_commission:.6f}, sell: {sale_commission:.6f}")
             
             # Получаем цены
             buy_price = self.coin_list[coin][buy_exchange]
             sale_price = self.coin_list[coin][sell_exchange]
-            logger.info(f"Prices - buy: {buy_price:.6f}, sell: {sale_price:.6f}")
             
             # Проверяем нулевые цены
-            if buy_price == 0:
-                logger.warning(f"Zero buy price for {coin} on {buy_exchange}")
-                return 0.0
-            if sale_price == 0:
-                logger.warning(f"Zero sale price for {coin} on {sell_exchange}")
+            if buy_price == 0 or sale_price == 0:
                 return 0.0
             
-            # Рассчитываем ROI
-            effective_sale = sale_price * (1.0 - sale_commission)
-            effective_buy = buy_price * (1.0 + buy_commission)
-            roi = (effective_sale - effective_buy) / buy_price
-            
-            logger.info(f"Calculation: effective_sale={effective_sale:.6f}, effective_buy={effective_buy:.6f}, roi={roi:.6f}")
-            
-            # Проверяем результат
-            if roi == 0:
-                logger.warning(f"ROI is zero - prices might be equal or commissions too high")
-            elif roi < 0:
-                logger.info(f"Negative ROI: {roi:.6f} (loss)")
-            else:
-                logger.info(f"Positive ROI: {roi:.6f} (profit)")
+            commission: float = (1.0 - sale_commission) * (1.0 - buy_commission)
+            effective_sale = ((1 * sale_price) / buy_price) * commission
+            roi = (effective_sale - 1) / 1
                 
             return roi
             
         except KeyError as e:
-            logger.error(f"KeyError in ROI calculation: {e}")
-            logger.error(f"Available buy commissions for {coin}: {list(self.guide.buy_commission.get(coin, {}).keys())}")
-            logger.error(f"Available sell commissions for {coin}: {list(self.guide.sell_commission.get(coin, {}).keys())}")
-            logger.error(f"Available prices for {coin}: {list(self.coin_list.get(coin, {}).keys())}")
+            print(f"Critical: Missing data for ROI calculation - {e}")
             return 0.0
             
         except ZeroDivisionError:
-            logger.error(f"ZeroDivisionError - buy_price is zero for {coin} on {buy_exchange}")
+            print(f"Critical: Zero buy price for {coin} on {buy_exchange}")
             return 0.0
             
         except Exception as e:
-            logger.error(f"Unexpected error in ROI calculation: {e}", exc_info=True)
+            print(f"Critical: Unexpected error in ROI calculation - {e}")
             return 0.0
-
         
     
     async def __aenter__(self):
         print("Запуск аналитика")
-        if self.scout is not None:
-            print("ScoutHead is normal")
+        # if self.scout is not None:
+        #     print("ScoutHead is normal")
         self.coin_list: dict[Coin, dict[Exchange, float]] = await self.scout.coin_list()
-        save_coin_table_to_html(self.coin_list)
+        print(f"Стартовые данные собраны\n Обрабатывается {len(self.coin_list)} монет")
         for coin in self.coin_list: # не уверен в синтакисе 
             self.coin_locks[coin] = asyncio.Lock()
             self.sorted_coin[coin] = await self._coin_culc(coin)
             
-        print_to_html(self.sorted_coin)
+        worst_coin, (buy_exchange, sale_exchange, worst_benefit) = self.sorted_coin.peekitem(-1)
+        print(f"Стартовые данные обработаны лучшая сделка: купить {worst_coin} на {buy_exchange} и продать на {sale_exchange} заработав {worst_benefit*100}%")
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):

@@ -1,38 +1,33 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Optional, Set, List, Any
 from .Assets import Assets
-from .Coin import Coin
-from ccxt.base.exchange import Exchange
+from .Exchange import Exchange
+from .Coin2 import Coin
+from ccxt.base.exchange import Exchange as ccxt_ex
 import ccxt
 import ccxt.pro as ccxtpro
 
 class Scout(ABC):
-    def __init__(self, exchange_name: str):
+    def __init__(self, exchange: Exchange):
         super().__init__()
-        self.exchange_name = exchange_name
-        self.exchange: Optional[ccxtpro.Exchange] = None
+        # self.exchange_name = exchange_name
+        self.exchange: Exchange = exchange
+        self.ccxt_exchange: Optional[ccxtpro.Exchange] = None
         self._coins: Optional[List[Coin]] = None
         
     async def initialize(self) -> None:
-        """Асинхронная инициализация биржи"""
-        self.exchange = getattr(ccxtpro, self.exchange_name)()
-        await self.exchange.load_markets()
+        self.ccxt_exchange = getattr(ccxtpro, self.exchange.name)()
+        await self.ccxt_exchange.load_markets()
         self._coins = await self.get_intersection_coins()
         
-        print(f"initialize of {self.exchange_name} complite")
+        print(f"initialize of {self.exchange.name} complite")
     
     def get_usdt_pairs(self, include_inactive: bool = False) -> List[str]:
-        """
-        Получает список монет с USDT-парами.
-        
-        Returns:
-            List[str]: Список базовых монет из USDT-пар
-        """
-        if not self.exchange:
+        if not self.ccxt_exchange:
             raise RuntimeError("Exchange not initialized. Call initialize() first.")
             
         try:
-            markets = self.exchange.markets
+            markets = self.ccxt_exchange.markets
             coins: Set[str] = set()
             
             for symbol, market_info in markets.items():
@@ -54,18 +49,12 @@ class Scout(ABC):
             return []
     
     async def get_intersection_coins(self) -> List[Coin]:
-        """
-        Получает пересечение монет из базы данных и доступных на бирже.
-        
-        Returns:
-            List[str]: Список общих монет
-        """
         try:
             # coin_names = set(Coin.get_all_coin_names())
             exchange_coins = set(self.get_usdt_pairs())
             
-            intersection: List[Coin] = Coin.get_coins_by_names(exchange_coins)
-            print(f"✅ Найдено {len(intersection)} общих монет на {self.exchange_name}")
+            intersection: List[Coin] = [coin for coin in self.exchange.coins if coin.name in exchange_coins]
+            print(f"✅ Найдено {len(intersection)} общих монет на {self.exchange.name}")
             
             return intersection
             
@@ -74,12 +63,6 @@ class Scout(ABC):
             return []
     
     def fetch_tickers_once(self, params: dict[str, Any] = {}) -> List[Assets]:
-        """
-        Получает тикеры один раз (синхронно).
-        
-        Returns:
-            List[Assets]: Список активов
-        """
         if not self.exchange:
             raise RuntimeError("Scout not initialized. Call initialize() first.")
         
@@ -90,7 +73,7 @@ class Scout(ABC):
         
         try:
             # Create a sync exchange instance for one-time fetching
-            sync_exchange = getattr(ccxt, self.exchange_name)()
+            sync_exchange = getattr(ccxt, self.exchange.name)()
             #TODO: тут все ломается
             symbols = [f"{coin.name}/USDT" for coin in self._coins]
             
@@ -100,12 +83,13 @@ class Scout(ABC):
                 try:
                     # Extract base currency from symbol (e.g., "BTC/USDT" -> "BTC")
                     base_currency = symbol.split('/')[0]
+                    coin: Coin = self.exchange.get_coin_by_name(base_currency)
                     bid: float = float(data.get('bid') or 0.0)
                     ask: float = float(data.get('ask') or 0.0)
                     
                     # Use mid price or handle bid/ask as needed
                     price = ask if ask > 0 else bid
-                    assets_list.append(Assets(base_currency, price))
+                    assets_list.append(Assets(coin, price))
                     
                 except (ValueError, TypeError) as e:
                     print(f"Invalid data for {symbol}: {e}")
@@ -137,11 +121,11 @@ class Scout(ABC):
         return self.exchange is not None and self._coins is not None
     
     @property
-    def coins(self) -> List[str]:
+    def coins(self) -> List[Coin]:
         """Геттер для coins с проверкой инициализации"""
         if self._coins is None:
             raise RuntimeError("Scout not initialized. Call initialize() first.")
-        return [coin.name for coin in self._coins]
+        return self._coins
     
     async def close(self) -> None:
         """Закрывает соединение с биржей"""
@@ -156,7 +140,7 @@ class Scout(ABC):
                 print(f"Ошибка при закрытии биржи: {e}")
     
     async def __aenter__(self):
-        print(f"Scout - {self.exchange_name} runing")
+        print(f"Scout - {self.exchange.name} runing")
         await self.initialize()
         return self
     

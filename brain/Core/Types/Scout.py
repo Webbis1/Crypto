@@ -2,25 +2,26 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterator, Optional, Set, List, Any
 from .Assets import Assets
 from .Exchange import Exchange
-from .Coin2 import Coin
+from .Coin import Coin
 from ccxt.base.exchange import Exchange as ccxt_ex
 import ccxt
 import ccxt.pro as ccxtpro
+import logging
 
 class Scout(ABC):
     def __init__(self, exchange: Exchange):
         super().__init__()
-        # self.exchange_name = exchange_name
         self.exchange: Exchange = exchange
         self.ccxt_exchange: Optional[ccxtpro.Exchange] = None
         self._coins: Optional[List[Coin]] = None
+        self.logger = logging.getLogger(f'scout.{exchange.name}')
         
     async def initialize(self) -> None:
         self.ccxt_exchange = getattr(ccxtpro, self.exchange.name)()
         await self.ccxt_exchange.load_markets()
         self._coins = await self.get_intersection_coins()
         
-        print(f"initialize of {self.exchange.name} complite")
+        self.logger.info(f"Initialized with {len(self._coins)} coins")
     
     def get_usdt_pairs(self, include_inactive: bool = False) -> List[str]:
         if not self.ccxt_exchange:
@@ -31,11 +32,9 @@ class Scout(ABC):
             coins: Set[str] = set()
             
             for symbol, market_info in markets.items():
-                # Фильтруем USDT-пары
                 if not symbol.endswith('/USDT'):
                     continue
                 
-                # Проверяем активность если нужно
                 if not include_inactive and not market_info.get('active', True):
                     continue
                 
@@ -45,21 +44,19 @@ class Scout(ABC):
             return sorted(list(coins))
             
         except Exception as e:
-            print(f"Ошибка при получении USDT-пар: {e}")
+            self.logger.error(f"Error getting USDT pairs: {e}")
             return []
     
     async def get_intersection_coins(self) -> List[Coin]:
         try:
-            # coin_names = set(Coin.get_all_coin_names())
             exchange_coins = set(self.get_usdt_pairs())
-            
             intersection: List[Coin] = [coin for coin in self.exchange.coins if coin.name in exchange_coins]
-            print(f"✅ Найдено {len(intersection)} общих монет на {self.exchange.name}")
             
+            self.logger.info(f"Found {len(intersection)} common coins")
             return intersection
             
         except Exception as e:
-            print(f"Ошибка при поиске пересечения монет: {e}")
+            self.logger.error(f"Error finding coin intersection: {e}")
             return []
     
     def fetch_tickers_once(self, params: dict[str, Any] = {}) -> List[Assets]:
@@ -72,91 +69,73 @@ class Scout(ABC):
         assets_list: List[Assets] = []
         
         try:
-            # Create a sync exchange instance for one-time fetching
             sync_exchange = getattr(ccxt, self.exchange.name)()
-            #TODO: тут все ломается
             symbols = [f"{coin.name}/USDT" for coin in self._coins]
             
             tickers: dict[str, Any] = sync_exchange.fetch_tickers(symbols, params)
             
             for symbol, data in tickers.items():
                 try:
-                    # Extract base currency from symbol (e.g., "BTC/USDT" -> "BTC")
                     base_currency = symbol.split('/')[0]
                     coin: Coin = self.exchange.get_coin_by_name(base_currency)
                     bid: float = float(data.get('bid') or 0.0)
                     ask: float = float(data.get('ask') or 0.0)
                     
-                    # Use mid price or handle bid/ask as needed
                     price = ask if ask > 0 else bid
                     assets_list.append(Assets(coin, price))
                     
                 except (ValueError, TypeError) as e:
-                    print(f"Invalid data for {symbol}: {e}")
+                    self.logger.warning(f"Invalid data for {symbol}: {e}")
                     continue
                 
         except ccxt.NetworkError as e:
-            print(f"Network error in fetch_tickers_once: {e}")
+            self.logger.error(f"Network error in fetch_tickers_once: {e}")
         except ccxt.ExchangeError as e:
-            print(f"Exchange error in fetch_tickers_once: {e}")
+            self.logger.error(f"Exchange error in fetch_tickers_once: {e}")
         except Exception as e:
-            print(f"Unexpected error in fetch_tickers_once: {e}")
+            self.logger.error(f"Unexpected error in fetch_tickers_once: {e}")
         finally:
-            # Close sync exchange if it exists
             if 'sync_exchange' in locals():
                 try:
-                    # Проверяем есть ли метод close
                     if hasattr(sync_exchange, 'close'):
                         sync_exchange.close()
                     else:
-                        # Для бирж без close() просто удаляем объект
                         del sync_exchange
                 except Exception as e:
-                    print(f"Ошибка при закрытии биржи: {e}")
+                    self.logger.warning(f"Error closing exchange: {e}")
         
         return assets_list
     
     def is_initialized(self) -> bool:
-        """Проверяет, инициализирован ли скаут"""
         return self.exchange is not None and self._coins is not None
     
     @property
     def coins(self) -> List[Coin]:
-        """Геттер для coins с проверкой инициализации"""
         if self._coins is None:
             raise RuntimeError("Scout not initialized. Call initialize() first.")
         return self._coins
     
     async def close(self) -> None:
-        """Закрывает соединение с биржей"""
         if self.exchange:
             try:
                 if hasattr(self.exchange, 'close'):
                     self.exchange.close()
                 elif hasattr(self.exchange, '__del__'):
-                    # Вызываем деструктор если нет close()
                     self.exchange.__del__()
             except Exception as e:
-                print(f"Ошибка при закрытии биржи: {e}")
+                self.logger.warning(f"Error closing exchange: {e}")
     
     async def __aenter__(self):
-        print(f"Scout - {self.exchange.name} runing")
+        self.logger.info("Starting scout")
         await self.initialize()
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.logger.error(f"Scout context error: {exc_val}")
         await self.close()
+        self.logger.info("Scout stopped")
 
     @abstractmethod
     async def watch_tickers(self, limit: int = 10, params: dict = None) -> AsyncIterator[Assets]:
-        """
-        Абстрактный метод для отслеживания тикеров.
-        
-        Args:
-            limit: Лимит монет для отслеживания
-            params: Дополнительные параметры
-            
-        Yields:
-            Assets: Данные об активах
-        """
         pass

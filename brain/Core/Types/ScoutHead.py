@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Any, AsyncIterator, List
 from .Assets import Assets
-from .Coin2 import Coin
+from .Coin import Coin
 from .Exchange import Exchange
 
 class ScoutHead(ABC):

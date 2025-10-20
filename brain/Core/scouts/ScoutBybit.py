@@ -1,28 +1,25 @@
-# ScoutBybit.py
-import ccxt.pro as ccxtpro
-from asyncio import run
 import asyncio
-import json
-from ..Types import Assets, Scout, Coin
+from ..Types import Assets, Scout
+import logging
 
 class ScoutBybit(Scout):
     async def watch_tickers(self, limit=10, params={}):
-        print(f"Bybit: starting with {len(self._coins)} coins")
+        logger = logging.getLogger('scout.bybit')
         
         if self.ccxt_exchange.has['watchTickers']:
+            logger.info(f"Starting ticker monitoring for {len(self._coins)} coins")
+            
             while True:
                 try:
                     symbols = [f"{coin.name}/USDT" for coin in self._coins]
                     
-                    # Bybit ограничение - разбиваем на chunks по 10
                     chunks = [symbols[i:i+10] for i in range(0, len(symbols), 10)]
-                    if len(chunks) > 1:
-                        print(f"Bybit: split into {len(chunks)} chunks")
+                    # if len(chunks) > 1:
+                    #     logger.info(f"Split into {len(chunks)} chunks")
                     
                     for chunk in chunks:
                         try:
                             tickers = await self.ccxt_exchange.watch_tickers(chunk, params)
-                            print(f"Bybit: received {len(tickers)} tickers")
                             
                             for symbol, data in tickers.items():
                                 try:
@@ -31,15 +28,17 @@ class ScoutBybit(Scout):
                                     ask = float(data.get('ask') or data.get('lastPrice') or 0.0)
                                     
                                     yield Assets(coin, ask)
-                                    print(f"Bybit: yielded {coin.name} = {ask:.6f}")
                                     
                                 except Exception as e:
-                                    print(f"Bybit: error processing {symbol}: {e}")
+                                    logger.warning(f"Error processing symbol {symbol}: {e}")
                                     continue
                         except Exception as e:
-                            print(f"Bybit: chunk error: {e}")
+                            logger.error(f"Chunk processing error: {e}")
                             continue
                             
+                except asyncio.CancelledError:
+                    logger.info("Ticker monitoring cancelled")
+                    raise
                 except Exception as e:
-                    print(f"Bybit: {e}")
+                    logger.error(f"Ticker monitoring error: {e}")
                     await asyncio.sleep(1)

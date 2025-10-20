@@ -1,15 +1,19 @@
-# ScoutKucoin.py
 from ..Types import Assets, Scout, Coin
-from typing import List, Dict, Any, AsyncIterator
+from typing import AsyncIterator
+import logging
+import asyncio
+
 class ScoutKucoin(Scout):
     async def watch_tickers(self, limit=10, params={})  -> AsyncIterator[Assets]:
-        print(f"Kucoin: starting with {len(self._coins)} coins")
+        logger = logging.getLogger('scout.kucoin')
+        
         if self.ccxt_exchange.has['watchTickers']:
+            logger.info(f"Starting ticker monitoring for {len(self._coins)} coins")
+            
             while True:
                 try:
                     symbols = [f"{coin.name}/USDT" for coin in self._coins]
                     tickers = await self.ccxt_exchange.watch_tickers(symbols, params)
-                    print(f"Kucoin: received {len(tickers)} tickers")
                     
                     for symbol, data in tickers.items():
                         try:
@@ -18,9 +22,13 @@ class ScoutKucoin(Scout):
                             ask = float(data.get('ask') or data.get('lastPrice') or 0.0)
                             
                             yield Assets(coin, ask)
-                            print(f"Kucoin: yielded {coin.name} = {ask:.6f}")
                             
-                        except Exception:
+                        except Exception as e:
+                            logger.warning(f"Error processing symbol {symbol}: {e}")
                             continue
+                            
+                except asyncio.CancelledError:
+                    logger.info("Ticker monitoring cancelled")
+                    raise
                 except Exception as e:
-                    print(f"Kucoin: {e}")
+                    logger.error(f"Ticker monitoring error: {e}")

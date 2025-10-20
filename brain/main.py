@@ -7,7 +7,44 @@ from Core.scouts import *
 import logging
 from log_manager import AsyncLogManager
 from setup import *
+from sortedcollections import ValueSortedDict
+import csv
+from datetime import datetime
+import os
 
+async def writeCoinListInCSV (coins: ValueSortedDict[Coin, tuple[Exchange, Exchange, float]], sleepSeconds: int, parseSecondsDuring: int = -1, parseTimeInfinity: bool = False):
+    CSV_FILENAME = 'coins.csv'
+    line: list = list()
+    
+    while (parseSecondsDuring > 0 or parseTimeInfinity):
+        csv_data: list = list()
+        timestamp = datetime.now().strftime('%H:%M:%S')
+
+        for key, value in coins.items():
+            line = [
+                key.name,
+                value[0].name,
+                value[1].name,
+                round(value[2] * 100, 3),
+                timestamp
+            ]
+
+            csv_data.append(line)
+
+        with open(CSV_FILENAME, 'a', newline='', encoding='utf-8') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            
+            if not os.path.exists(CSV_FILENAME) or os.path.getsize(CSV_FILENAME) == 0:
+                csvwriter.writerow(['Монета','место где купить','место куда продать','прибыль','время'])
+
+            csvwriter.writerows(csv_data)
+
+        print('Coins CSV was updated')
+
+        parseSecondsDuring -= sleepSeconds
+        await asyncio.sleep(sleepSeconds)
+
+        
 
 async def main():
     logger = logging.getLogger('main')
@@ -26,6 +63,9 @@ async def main():
                         
                         update_task = asyncio.create_task(analyst.start_update())
                         logger.info("Data update task started")
+
+                        print_dict_task = asyncio.create_task(writeCoinListInCSV(analyst.sorted_coin, 2, 10, True))
+                        print('Print coins task started')
                         
                         async with AsyncResponseServer(analyst) as server:
                             logger.info("AsyncResponseServer is ready")
@@ -48,7 +88,7 @@ async def main():
                                 
                                 # Ждем завершения с обработкой исключений
                                 try:
-                                    await asyncio.gather(update_task, server_task, return_exceptions=True)
+                                    await asyncio.gather(update_task, server_task, print_dict_task, return_exceptions=True)
                                 except Exception as e:
                                     logger.error(f"Error during shutdown: {e}")
                                 

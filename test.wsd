@@ -1,5 +1,27 @@
-@startuml
-!include scout_classes.puml
+title Asyncio Condition Implementation
 
+control Monitor
+participant Trader
+participant Brain
+boundary Exchange
 
-@enduml
+Monitor->Brain: request trading_strategy
+Brain-->Monitor: {min_limit: 1000, coin: BTC}
+
+Monitor->Monitor: condition = asyncio.Condition()
+
+loop every second
+    Exchange->Monitor: balance_update
+    Monitor->Monitor: current_balance = get_balance()
+    
+    alt current_balance >= min_limit
+        Monitor->Monitor: condition.acquire()
+        Monitor->Trader: condition.notify_all()
+        Monitor->Monitor: condition.release()
+    end
+end
+
+Trader->Trader: await condition.wait()
+Trader->Exchange: execute_market_buy()
+Exchange-->Trader: order_success
+Trader->Monitor: update_balance_after_trade

@@ -72,6 +72,5 @@ class Manager:
             self.wallet[coin] += change
     
     
-    async def start(self):
-        async with self.observer as obs:
-            pass 
+    # async def start(self):
+        

@@ -91,19 +91,19 @@ class CrossExchangeTransfer:
                         'max_amount': max_amount
                     }
             
-            # Значения по умолчанию если не удалось получить информацию
-            if exchange == self.kucoin:
-                return {
-                    'fee': Decimal('0.8'),
-                    'min_amount': Decimal('10'),
-                    'max_amount': Decimal('100000')
-                }
-            else:
-                return {
-                    'fee': Decimal('1.0'),
-                    'min_amount': Decimal('5'),
-                    'max_amount': Decimal('100000')
-                }
+            # # Значения по умолчанию если не удалось получить информацию
+            # if exchange == self.kucoin:
+            #     return {
+            #         'fee': Decimal('0.8'),
+            #         'min_amount': Decimal('10'),
+            #         'max_amount': Decimal('100000')
+            #     }
+            # else:
+            #     return {
+            #         'fee': Decimal('1.0'),
+            #         'min_amount': Decimal('5'),
+            #         'max_amount': Decimal('100000')
+            #     }
                 
         except Exception as e:
             print(f"Ошибка получения информации о выводе: {e}")
@@ -448,19 +448,19 @@ def main():
     # Используем рекомендованную минимальную сумму
     test_amount = float(limits['recommended_min'] + Decimal('1'))
 
-    # Тест BitGet -> KuCoin (с ручным вводом адреса)
-    if balances['bitget']['free'] >= test_amount:
-        print(f"\n=== ТЕСТ ПЕРЕВОДА BitGet -> KuCoin ({test_amount} USDT) ===")
+    # # Тест BitGet -> KuCoin (с ручным вводом адреса)
+    # if balances['bitget']['free'] >= test_amount:
+    #     print(f"\n=== ТЕСТ ПЕРЕВОДА BitGet -> KuCoin ({test_amount} USDT) ===")
         
-        # Получаем адрес KuCoin вручную
-        kucoin_addr = transfer.get_manual_kucoin_address()
-        if kucoin_addr:
-            result2 = transfer.transfer_usdt('bitget_to_kucoin', test_amount, kucoin_addr)
-            print(f"Результат: {result2}")
-        else:
-            print("Не удалось получить адрес KuCoin")
-    else:
-        print(f"\nНедостаточно доступных средств на BitGet для теста. Нужно: {test_amount}, доступно: {balances['bitget']['free']}")
+    #     # Получаем адрес KuCoin вручную
+    #     kucoin_addr = transfer.get_manual_kucoin_address()
+    #     if kucoin_addr:
+    #         result2 = transfer.transfer_usdt('bitget_to_kucoin', test_amount, kucoin_addr)
+    #         print(f"Результат: {result2}")
+    #     else:
+    #         print("Не удалось получить адрес KuCoin")
+    # else:
+    #     print(f"\nНедостаточно доступных средств на BitGet для теста. Нужно: {test_amount}, доступно: {balances['bitget']['free']}")
 
 if __name__ == "__main__":
     main()

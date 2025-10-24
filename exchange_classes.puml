@@ -1,0 +1,7 @@
+@startuml
+allow_mixing
+
+s
+
+
+@enduml

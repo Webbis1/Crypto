@@ -19,7 +19,21 @@ class ScoutGate(Scout):
                         try:
                             base_currency = symbol.split('/')[0]
                             coin: Coin = self.exchange.get_coin_by_name(base_currency)
-                            ask = float(data.get('ask') or data.get('lastPrice') or 0.0)
+                            ask = 0.0
+                            
+                            if (data.get('ask') is not None):
+                                ask = float(data.get('ask'))
+                                            
+                            elif (data.get('lastPrice') is not None):
+                                ask = float(data.get('lastPrice'))
+                                
+                            elif (data.get('info')['lastPrice'] is not None):
+                                ask = float(data.get('info')['lastPrice'])
+                            
+                            if (ask == 0.0):
+                                print(self.ccxt_exchange.name)
+                                print(data)
+                                print('=================')
                             
                             yield Assets(coin, ask)
                             

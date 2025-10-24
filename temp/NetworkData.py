@@ -134,15 +134,26 @@ exchange_names_list = [
     'Okx'
 ]
 
-def get_available_networks(exchange, symbol='USDT'):
+def get_available_networks(exchange_from, exchange_to, symbol='USDT'):
     """Получить доступные сети для вывода"""
     try:
-        currencies = exchange.fetch_currencies()
+        networks_exchange_from = []
+        currencies = exchange_from.fetch_currencies()
         if symbol in currencies:
             currency_info = currencies[symbol]
-            networks = currency_info.get('networks', {})
-            #print(f"Доступные сети для {exchange.name}: {list(networks.keys())}")
+            networks_exchange_from = currency_info.get('networks', {})
+        
+        networks_exchange_to = []
+        currencies = exchange_to.fetch_currencies()
+        if symbol in currencies:
+            currency_info = currencies[symbol]
+            networks_exchange_to = currency_info.get('networks', {})
+        
+        networks = list(set(networks_exchange_from) & set(networks_exchange_to))
+        
+        if (len(networks) != 0):
             return networks
+        
         return {}
     except Exception as e:
         print(f"Ошибка получения сетей: {e}")
@@ -184,30 +195,39 @@ def get_withdrawal_info(exchange, symbol='USDT', network='BSC'):
 def get_fee_matrix():
     '''Строит трехмерную матрицу комиссий'''
     
-    mat = [[[]]]
+    mat = [[[[]]]]
     coin_index = 0 
-    ex_index = 0
+    exchange_from_index = 0
+    exchange_to_index = 0
     
     for coin in coin_list:
-        mat.append([[]])
-        ex_index = 0
+        mat.append([[[]]])
+        exchange_from_index = 0
         
-        for exchange in exchange_list:
-            mat[coin_index].append([])
-            networks_list = get_available_networks(exchange, coin.name)
-                        
-            if (len(networks_list) == 0):
-                print('Монета ' + str(coin.name) + ' не торгуется на бирже ' + str(exchange.name))
-                continue
+        for exchange_from in exchange_list:
+            mat.append([[]])
             
-            for network in networks_list:
-                fee = get_withdrawal_info(exchange, coin.name, network)
-                #print('Монета: ' + str(coin.name) + '; Биржа: ' + str(exchange.name) + '; Сеть: ' + str(network) + '; Комиссия: ' + str(fee))
-                #print('============')
+            for exchange_to in exchange_list:
+                if (exchange_from.name == exchange_to.name):
+                    continue
+            
+                mat[coin_index].append([])
+                networks_list = get_available_networks(exchange_from, exchange_to, coin.name)
+                            
+                if (len(networks_list) == 0):
+                    print('Монета ' + str(coin.name) + ' не торгуется на бирже ' + str(exchange_from.name))
+                    continue
                 
-                mat[coin_index][ex_index].append(fee)
+                for network in networks_list:
+                    fee = get_withdrawal_info(exchange_from, coin.name, network)
+                    print('Монета: ' + str(coin.name) + '; Биржа отправления: ' + str(exchange_from.name) + '; Биржа получения: ' + str(exchange_to.name) +  '; Сеть: ' + str(network) + '; Комиссия: ' + str(fee))
+                    print('============')
+                    
+                    mat[coin_index][exchange_from_index][exchange_to_index].append(fee)
+                    
+                exchange_to_index += 1
                 
-            ex_index += 1
+            exchange_from_index += 1
 
         coin_index += 1
         print('Монета №' + str(coin_index) + ' обработана')
@@ -267,7 +287,7 @@ def display_min_fees_matrix(min_fees):
 def main():
     mat = get_fee_matrix()
     min_fees = get_min_fees_matrix(mat)
-    display_min_fees_matrix(min_fees)
+    #display_min_fees_matrix(min_fees)
 
     
 if __name__ == "__main__":

@@ -1,34 +1,17 @@
-# from sortedcontainers import ValueSortedDict
-# from datetime import datetime
+# coding: utf-8
+import requests
+import time
+import hashlib
+import hmac
 
+host = "https://api.gateio.ws"
+prefix = "/api/v4"
+headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
 
-# d = {'a': {'datetime': datetime.datetime.now()}, 'b': {'datetime': datetime.datetime.now()}, 'z': {'datetime': datetime.datetime.now()}, 'c': {'datetime': datetime.datetime.now()}}
-# vsd = ValueSortedDict()
-# for k, v in d.items():                                                                                                                                              
-#     vsd[k] = v['datetime']
-# vsd['d'] = datetime.datetime.now()
-
-
-from typing import Union
-
-
-class Coin:
-    def __init__(self, id: int, name: str):
-        self.id = id
-        self.name = name
-    
-    def __int__(self) -> int:
-        return self.id
-
-    def __str__(self) -> str:
-        return self.name    
-    
-
-
-def print_id(id: Union[int]):
-    print(id)
-    
-    
-coin: Coin = Coin(5, "sdfsa")
-
-print_id(coin)
+url = '/wallet/withdrawals'
+query_param = ''
+# for `gen_sign` implementation, refer to section `Authentication` above
+sign_headers = gen_sign('GET', prefix + url, query_param)
+headers.update(sign_headers)
+r = requests.request('GET', host + prefix + url, headers=headers)
+print(r.json())

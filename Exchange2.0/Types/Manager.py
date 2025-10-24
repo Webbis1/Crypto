@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import AsyncGenerator, AsyncContextManager
 from bidict import bidict
+import ccxt
+import ccxt.pro as ccxtpro
+from typing import Optional, Dict, Any
+from pprint import pprint  
+import logging
 
 @dataclass
 class Coin:
@@ -60,12 +65,93 @@ class ExWallet:
         return self._coins.get(coin, 0.0)
 
 class Trader:
-    async def trade(self) -> bool:
+    # 
+    def __init__(self, exchange: ccxt.Exchange):
+        self.exchange: ccxt.Exchange = exchange
+        self._closed = False
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+        
+    async def close(self):
+        """Явное закрытие соединений"""
+        if not self._closed and self.exchange:
+            try:
+                await self.exchange.close()
+                self._closed = True
+                logger.info("Соединения биржи закрыты")
+            except Exception as e:
+                logger.error(f"Ошибка при закрытии биржи: {e}")
+    
+    def __del__(self):
+        if not self._closed:
+            logger.warning("Courier удален без закрытия!")
+    async def trade(self, buing_coin:str, selling_coin:str, quantity:float) -> bool:
         pass
     
 class Courier:
-    async def  transfer(self) -> bool:
+    def __init__(self, exchange: ccxt.Exchange):
+        self.exchange: ccxt.Exchange = exchange
+        self._closed = False
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+    
+    async def get_deposit_address(self, coin: str, network: str = None) -> tuple[bool, dict[str, Any]]:
+        try:
+            params = {'network': network, 'chain': network} if network else {}
+            address_info = await self.exchange.fetchDepositAddress(coin, params)
+            try:
+                currencies = await self.exchange.fetch_currencies()
+                if coin in currencies:
+                    available_networks = currencies[coin]
+                    pprint(available_networks['info']['chains'])
+                    # logger.info(f"Доступные сети для {coin}: {available_networks}")
+                    # return False, {'info': f'Сеть {network} не поддерживается. Доступные сети: {available_networks}'}
+            except:
+                pass
+            return True, address_info
+        except ccxt.BadRequest as e:
+            logger.error(f"Неверный запрос для {coin} в сети {network}: {e}")
+            try:
+                currencies = await self.exchange.fetch_currencies()
+                if coin in currencies:
+                    available_networks = list(currencies[coin])
+                    print(available_networks)
+                    # logger.info(f"Доступные сети для {coin}: {available_networks}")
+                    return False, {'error': f'Сеть {network} не поддерживается. Доступные сети: {available_networks}'}
+            except:
+                pass
+            return False, {'error': f'Сеть {network} не поддерживается для {coin}'}
+        except ccxt.BaseError as e:
+            logger.error(f"Ошибка ccxt при получении адреса {coin}: {e}")
+            return False, {'error': str(e)}
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при получении адреса {coin}: {e}")
+            return False, {'error': str(e)}
+    
+    async def transfer(self) -> bool:
         pass
+    
+    async def close(self):
+        """Явное закрытие соединений"""
+        if not self._closed and self.exchange:
+            try:
+                await self.exchange.close()
+                self._closed = True
+                logger.info("Соединения биржи закрыты")
+            except Exception as e:
+                logger.error(f"Ошибка при закрытии биржи: {e}")
+    
+    def __del__(self):
+        if not self._closed:
+            logger.warning("Courier удален без закрытия!")
 
 class Brain:
     async def consultation(self):
@@ -75,6 +161,7 @@ from typing import Callable, Set, Protocol
 from collections.abc import Awaitable
 import inspect
 from abc import ABC, abstractmethod
+
 
 
 class BalanceObserver(ABC):
@@ -134,7 +221,57 @@ class Manager:
     
     
     # async def start(self):
+
+
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def ExFactory(ex_name: str, sandbox: bool = False) -> Optional[ccxt.Exchange]:
+    try:
+        if ex_name not in ccxt.exchanges:
+            logger.error(f"Биржа {ex_name} не поддерживается в ccxt")
+            return None
         
+        if ex_name not in api_keys:
+            logger.error(f"API ключи для биржи {ex_name} не найдены в конфиге")
+            return None
+        
+        config = api_keys[ex_name]
+        
+        if 'api_key' not in config or 'api_secret' not in config:
+            logger.error(f"Отсутствуют обязательные API ключи для биржи {ex_name}")
+            return None
+        
+        # Создаем базовую конфигурацию
+        exchange_config: Dict[str, Any] = {
+            'apiKey': config['api_key'],
+            'secret': config['api_secret'],
+            'sandbox': sandbox,
+            'enableRateLimit': True,
+        }
+        
+        optional_params = ['password', 'uid', 'privateKey', 'walletAddress']
+        for param in optional_params:
+            if param in config and config[param]:
+                exchange_config[param] = config[param]
+        
+        exchange_class = getattr(ccxtpro, ex_name)
+        ccxt_exchange = exchange_class(exchange_config)
+        
+        logger.info(f"Успешно создан экземпляр биржи {ex_name} (sandbox: {sandbox})")
+        return ccxt_exchange
+        
+    except AttributeError as e:
+        logger.error(f"Биржа {ex_name} не найдена в ccxtpro: {e}")
+        return None
+    except KeyError as e:
+        logger.error(f"Ошибка в конфигурации для биржи {ex_name}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при создании биржи {ex_name}: {e}")
+        return None
     
 import asyncio
 from typing import Set, Dict, Any
@@ -271,20 +408,33 @@ class TestSubscriber:
     
     async def update_price(self, coin: Coin | int, change: float) -> None:
             print(f'TestClass: data is update\n Coin - {coin}; Change - {change}')
-            
+          
+        
+        
+
 
 
 
 
 async def main():
-    test = TestSubscriber(obs)
-    await obs.start()
+    # test = TestSubscriber(obs)
+    # await obs.start()
     
         # Ждем 30 секунд
-    await asyncio.sleep(30)
+    # await asyncio.sleep(30)
     
     # Останавливаем
-    await obs.stop()
+    # await obs.stop()
+    # async with Courier(ExFactory("bitget")) as cura:
+    #     adress = await cura.get_deposit_address("USDT", 'BEP20')
+    #     pprint(adress)
+    async with Courier(ExFactory("kucoin")) as cura:
+        adress = await cura.get_deposit_address("USDT", 'optimism')
+        # adress = await cura.get_deposit_address("USDT", 'BEP20')
+        pprint(adress)
+    # async with Courier(ExFactory("gate")) as cura:
+    #     adress = await cura.get_deposit_address("USDT", 'BEP20')
+    #     pprint(adress)
     
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,9 +1,10 @@
-from decimal import Decimal
 import ccxt
 from brain.Core.Types.Coin import Coin
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import asyncio
+import csv
 
 coin_list: list[Coin] = [
     Coin('USDT'),
@@ -134,142 +135,122 @@ exchange_names_list = [
     'Okx'
 ]
 
-def get_available_networks(exchange, symbol='USDT'):
-    """Получить доступные сети для вывода"""
-    try:
-        currencies = exchange.fetch_currencies()
-        if symbol in currencies:
-            currency_info = currencies[symbol]
-            networks = currency_info.get('networks', {})
-            #print(f"Доступные сети для {exchange.name}: {list(networks.keys())}")
-            return networks
-        return {}
-    except Exception as e:
-        print(f"Ошибка получения сетей: {e}")
-        return {}
-    
-def get_withdrawal_info(exchange, symbol='USDT', network='BSC'):
-    """Получить информацию о выводе: комиссию, минимальную и максимальную сумму"""
-    try:
-        currencies = exchange.fetch_currencies()
-        if symbol in currencies:
-            currency_info = currencies[symbol]
-            if network in currency_info.get('networks', {}):
-                
-                network_info = currency_info['networks'][network]
-                fee = Decimal(str(network_info.get('fee', 0)))
-                min_amount_decimal = Decimal(str(network_info.get('limits', {}).get('withdraw', {}).get('min', 0)))
-                max_amount = network_info.get('limits', {}).get('withdraw', {}).get('max', 0)
+# ... (coin_list, exchange_list, exchange_names_list остаются без изменений)
 
-                if (max_amount is not None):
-                    max_amount_decimal = Decimal(str(network_info.get('limits', {}).get('withdraw', {}).get('max', 0)))
-                else:
-                    max_amount_decimal = Decimal('Infinity')
-                
-                return fee
-                
-            else:
-                print('Нет переданной сети' + str(network) +  'для выбранной монеты ' + str(symbol) + ' на бирже ' + str(exchange.name))
-                return None
-                
-        else:
-            print('Нет переданной монеты: ' + str(symbol) + ' на бирже ' + str(exchange.name))
+async def get_available_networks(exchange_from, exchange_to, symbol='USDT'):
+    try:
+        currencies_from = exchange_from.fetch_currencies()
+        currencies_to = exchange_to.fetch_currencies()
+
+        networks_from = set(currencies_from[symbol]['networks'].keys()) if symbol in currencies_from else set()
+        networks_to = set(currencies_to[symbol]['networks'].keys()) if symbol in currencies_to else set()
+
+        return list(networks_from & networks_to)
+    except Exception as e:
+        print(f"Ошибка получения сетей для {symbol}: {e}")
+        return []
+
+async def get_withdrawal_info(exchange, symbol='USDT', network='BSC'):
+    try:        
+        currencies = exchange.fetch_currencies()
+        if symbol not in currencies:
+            print(f'Монета {symbol} отсутствует на бирже {exchange.name}')
             return None
 
-    except Exception as e:
-        print(f"Ошибка получения информации о выводе: {e}")
-        print()
-        return None
-        
-def get_fee_matrix():
-    '''Строит трехмерную матрицу комиссий'''
-    
-    mat = [[[]]]
-    coin_index = 0 
-    ex_index = 0
-    
-    for coin in coin_list:
-        mat.append([[]])
-        ex_index = 0
-        
-        for exchange in exchange_list:
-            mat[coin_index].append([])
-            networks_list = get_available_networks(exchange, coin.name)
-                        
-            if (len(networks_list) == 0):
-                print('Монета ' + str(coin.name) + ' не торгуется на бирже ' + str(exchange.name))
-                continue
-            
-            for network in networks_list:
-                fee = get_withdrawal_info(exchange, coin.name, network)
-                #print('Монета: ' + str(coin.name) + '; Биржа: ' + str(exchange.name) + '; Сеть: ' + str(network) + '; Комиссия: ' + str(fee))
-                #print('============')
-                
-                mat[coin_index][ex_index].append(fee)
-                
-            ex_index += 1
+        currency_info = currencies[symbol]
+        networks = currency_info.get('networks', {})
+        if network not in networks:
+            print(f'Сеть {network} недоступна для {symbol} на {exchange.name}')
+            return None
 
-        coin_index += 1
-        print('Монета №' + str(coin_index) + ' обработана')
+        network_info = networks[network]
+                
+        fee = str(network_info.get('fee', 0))
+        return fee
+    except Exception as e:
+        print(f"Ошибка получения комиссии для {symbol}/{network} на {exchange.name}: {e}")
+        return None
+
+async def get_fee_matrix():
+    n_coins = len(coin_list)
+    n_exchanges = len(exchange_list)
+    
+    mat = [[[[] for _ in range(n_exchanges)] for _ in range(n_exchanges)] for _ in range(n_coins)]
+
+    for coin_idx, coin in enumerate(coin_list):
+        coin_csv_filename = 'coins_networks_data/' + coin.name + '_networks_data.csv'
+        coin_csv_data = []
+
+        for ex_from_idx, exchange_from in enumerate(exchange_list):
+            for ex_to_idx, exchange_to in enumerate(exchange_list):
+                if exchange_from.name == exchange_to.name:
+                    continue  # пропускаем одинаковые биржи
+
+                networks = await get_available_networks(exchange_from, exchange_to, coin.name)
+                if not networks:
+                    continue
+
+                fees_for_pair = []
+                for network in networks:
+                    fee = await get_withdrawal_info(exchange_from, coin.name, network)
+                    if fee is not None:
+                        fees_for_pair.append(fee)
+                        print(f'Монета: {coin.name}; От: {exchange_from.name}; Куда: {exchange_to.name}; Сеть: {network}; Комиссия: {fee}')
+                        print('============')
+                        
+                    line = [
+                        exchange_from.name,
+                        exchange_to.name,
+                        network,
+                        fee
+                    ]
+                    
+                    coin_csv_data.append(line)
+
+                mat[coin_idx][ex_from_idx][ex_to_idx] = fees_for_pair
+
+        with open(coin_csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Биржа ОТКУДА', 'Биржа КУДА', 'Сеть', 'Комиссия'])
+            writer.writerows(coin_csv_data)
+        
+        print(f'Монета №{coin_idx + 1} ({coin.name}) обработана')
 
     print('Матрица комиссий построена')
     return mat
 
 def get_min_fees_matrix(mat):
-    '''Строит матрицу минимальных комиссий'''
     n_coins = len(mat)
-    n_ex = len(mat[0]) if mat else 0
+    if n_coins == 0:
+        return []
+    n_ex = len(mat[0])
 
     min_fees = [[None for _ in range(n_ex)] for _ in range(n_coins)]
-    popularity_counts = [0 for _ in range(n_ex)]  # счётчик для каждой биржи
 
     for i in range(n_coins):
         for j in range(n_ex):
-            fees = mat[i][j]
-            # Фильтруем None и пустые списки
-            valid_fees = [f for f in fees if f is not None]
-            
-            if valid_fees:
-                min_fees[i][j] = min(valid_fees)
-                popularity_counts[j] += len(valid_fees)  # или += 1, если считать "наличие данных", а не кол-во записей
+            # Берём минимальную комиссию среди всех "куда" (но в вашем случае — по каждому направлению отдельно)
+            # Но в текущей логике: mat[i][j][k] — это список комиссий для пары (j → k)
+            # Однако в get_min_fees_matrix вы, кажется, хотите агрегировать по отправляющей бирже?
+            # Поскольку визуализация — по монетам и биржам (отправка), будем брать минимум по всем направлениям из j
+            all_fees = []
+            for k in range(len(mat[i][j])):
+                fees = mat[i][j][k]
+                if isinstance(fees, list):
+                    all_fees.extend([f for f in fees if f is not None])
+            if all_fees:
+                min_fees[i][j] = min(all_fees)
             else:
                 min_fees[i][j] = None
-                
+
     return min_fees
 
-def display_min_fees_matrix(min_fees):
-    '''Визуализирует матрицу минимальных комиссий'''
-    
-    # Преобразуем в числовой массив с NaN вместо None
-    min_fees_numeric = np.array([
-        [x if x is not None else np.nan for x in row]
-        for row in min_fees
-    ])
+# display_min_fees_matrix остаётся без изменений (но убедитесь, что размеры совпадают)
 
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(
-        min_fees_numeric,
-        xticklabels=exchange_names_list,
-        yticklabels=map(lambda coin: coin.name, coin_list),
-        annot=True,
-        fmt=".4f",
-        cmap="viridis",
-        cbar_kws={'label': 'Минимальная комиссия'},
-        mask=np.isnan(min_fees_numeric)  # скрыть NaN
-    )
-    plt.title("Минимальные комиссии по монетам и биржам")
-    plt.xlabel("Биржа")
-    plt.ylabel("Монета")
-    plt.tight_layout()
-    plt.show()
-
-# Пример использования
-def main():
-    mat = get_fee_matrix()
+async def main():
+    mat = await get_fee_matrix()
     min_fees = get_min_fees_matrix(mat)
-    display_min_fees_matrix(min_fees)
+    # display_min_fees_matrix(min_fees)
 
-    
 if __name__ == "__main__":
-    main()
-    
+    asyncio.run(main())

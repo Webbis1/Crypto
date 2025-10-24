@@ -1,0 +1,19 @@
+{
+  "info": {
+    "name": "ARBEVM",
+    "addr": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    "withdraw_disabled": "'False'",
+    "withdraw_delayed": "'False'",
+    "deposit_disabled": "'False'"
+  },
+  "id": "ARBEVM",
+  "network": "ARBONE",
+  "active": "'True'",
+  "deposit": "'True'",
+  "withdraw": "'True'",
+  "fee": "'None'",
+  "precision": 0.0001,
+  "limits": {
+    "deposit": { "min": "'None'", "max": "'None'" },
+    "withdraw": { "min": "'None'", "max": "'None'" }
+  }

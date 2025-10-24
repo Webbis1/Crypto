@@ -1,0 +1,30 @@
+{
+  "info": {
+    "chain": "SOL",
+    "needTag": "false",
+    "withdrawable": "true",
+    "rechargeable": "true",
+    "withdrawFee": "1",
+    "extraWithdrawFee": "0",
+    "depositConfirm": "5",
+    "withdrawConfirm": "5",
+    "minDepositAmount": "0.01",
+    "minWithdrawAmount": "10",
+    "browserUrl": "https://solscan.io/tx/",
+    "contractAddress": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "withdrawStep": "0",
+    "withdrawMinScale": "6",
+    "congestion": "normal"
+  },
+  "id": "SOL",
+  "network": "SOL",
+  "limits": {
+    "withdraw": { "min": 10.0, "max": "None" },
+    "deposit": { "min": 0.01, "max": "None" }
+  },
+  "active": "True",
+  "withdraw": "True",
+  "deposit": "True",
+  "fee": 1.0,
+  "precision": 1e-6
+}

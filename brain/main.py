@@ -40,11 +40,10 @@ async def writeCoinListInCSV (coins: ValueSortedDict[Coin, tuple[Exchange, Excha
             csvwriter.writerows(csv_data)
 
         # print('Coins CSV was updated')
-
+        
         parseSecondsDuring -= sleepSeconds
         await asyncio.sleep(sleepSeconds)
 
-        
 
 async def main():
     logger = logging.getLogger('main')

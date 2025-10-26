@@ -161,7 +161,7 @@ class ExFactory:
         
     def __iter__(self):
         """Итерация по экземплярам бирж (без имен)"""
-        return iter(self.exchanges.values())
+        return iter(self.exchanges.values()) #ccxtpro.Exchange
     
     def items(self):
         """Итерация по парам (имя, экземпляр)"""

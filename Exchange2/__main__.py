@@ -5,7 +5,7 @@ import logging
 from .config import api_keys as API
 from .Types import Port, ExFactory, ExchangeConnectionError, BalanceObserver
 from .Observers.RegularObserver import RegularObserver
-
+from .Observers.OkxObserver import OkxObserver
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -73,7 +73,12 @@ async def main():
             logger.info("ExFactory successfully initialized, exchanges connected, and balances checked.")
             port: Port = Port(factory, ROUTES)
             
-            observers = [RegularObserver(ex) for ex in factory]
+            observers = []
+            for ex in factory:
+                if ex.id == 'okx':
+                    observers.append(OkxObserver(ex))
+                else:
+                    observers.append(RegularObserver(ex)) 
             
             pr = TestSubscriber(observers)
             

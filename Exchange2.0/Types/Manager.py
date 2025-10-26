@@ -92,9 +92,15 @@ class Trader:
     async def trade(self, buing_coin:str, selling_coin:str, quantity:float) -> bool:
         pass
     
+    
+class Port:
+    async def get_deposit_adress(ex_name:str, coin_name, chain_name:str) -> str:
+        pass    
+
 class Courier:
-    def __init__(self, exchange: ccxt.Exchange):
+    def __init__(self, exchange: ccxt.Exchange, port: Port):
         self.exchange: ccxt.Exchange = exchange
+        self.port = port
         self._closed = False
     
     async def __aenter__(self):
@@ -107,15 +113,6 @@ class Courier:
         try:
             params = {'network': network, 'chain': network} if network else {}
             address_info = await self.exchange.fetchDepositAddress(coin, params)
-            try:
-                currencies = await self.exchange.fetch_currencies()
-                if coin in currencies:
-                    available_networks = currencies[coin]
-                    pprint(available_networks['info']['chains'])
-                    # logger.info(f"Доступные сети для {coin}: {available_networks}")
-                    # return False, {'info': f'Сеть {network} не поддерживается. Доступные сети: {available_networks}'}
-            except:
-                pass
             return True, address_info
         except ccxt.BadRequest as e:
             logger.error(f"Неверный запрос для {coin} в сети {network}: {e}")
@@ -136,8 +133,19 @@ class Courier:
             logger.error(f"Неожиданная ошибка при получении адреса {coin}: {e}")
             return False, {'error': str(e)}
     
-    async def transfer(self) -> bool:
-        pass
+    async def transfer(self, address: str, coin_name: str, chain_name: str, quantity: float) -> bool:
+        try:
+            result = await self.exchange.withdraw(
+                code=coin_name,
+                amount=quantity,
+                address=address,
+                params={'chain': chain_name.lower()}
+            )
+            return result and 'id' in result
+        except Exception as e:
+            print(f"Transfer error: {e}")
+            return False
+        
     
     async def close(self):
         """Явное закрытие соединений"""
@@ -201,8 +209,10 @@ class BalanceObserver(ABC):
 
 
 class Manager:
-    def __init__(self, obs: BalanceObserver, coins: bidict[str, int]):
+    def __init__(self, obs: BalanceObserver, coins: bidict[str, int], chains: dict[int, str], commissions:dict[int, float]):
         self._coins: bidict[str, int] = coins
+        self.chains: dict[int, str] = chains
+        self.commissions: dict[int, float] = commissions
         self.wallet: dict[int, float] = {}
         self.trader: Trader
         self.courier: Courier

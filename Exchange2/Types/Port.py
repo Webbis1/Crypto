@@ -3,7 +3,7 @@ import logging
 import ccxt
 import ccxt.pro as ccxtpro
 
-from ExFactory import ExFactory
+from .ExFactory import ExFactory
 from dataclasses import dataclass
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

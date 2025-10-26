@@ -141,8 +141,11 @@ class ExFactory:
         try:
             await exchange.close()
             logger.info(f"Exchange '{ex_name}' closed successfully.")
+        except asyncio.CancelledError:
+            # Это нормально - фоновые задачи KuCoin отменяются
+            logger.debug(f"Exchange '{ex_name}': background tasks were cancelled")
         except Exception as e:
-            logger.warning(f"Error closing exchange '{ex_name}': {e}", exc_info=True)
+            logger.warning(f"Error closing exchange '{ex_name}': {e}")
     
     async def __aenter__(self):
         await self.create_exchanges()
@@ -153,3 +156,39 @@ class ExFactory:
         if exc_type:
             logger.error(f"Exiting ExFactory due to an exception: {exc_val}", exc_info=(exc_type, exc_val, exc_tb))
         await self.close()
+        
+        
+        
+    def __iter__(self):
+        """Итерация по экземплярам бирж (без имен)"""
+        return iter(self.exchanges.values())
+    
+    def items(self):
+        """Итерация по парам (имя, экземпляр)"""
+        return self.exchanges.items()
+    
+    def values(self):
+        """Итерация только по экземплярам бирж"""
+        return self.exchanges.values()
+    
+    def keys(self):
+        """Итерация только по именам бирж"""
+        return self.exchanges.keys()
+    
+    @property
+    def connected_exchanges(self) -> list[ccxtpro.Exchange]:
+        """Список всех подключенных бирж"""
+        return list(self.exchanges.values())
+    
+    @property
+    def exchange_names(self) -> list[str]:
+        """Список имен всех подключенных бирж"""
+        return list(self.exchanges.keys())
+    
+    def __len__(self):
+        """Количество подключенных бирж"""
+        return len(self.exchanges)
+    
+    def __contains__(self, ex_name: str):
+        """Проверка наличия биржи"""
+        return ex_name in self.exchanges

@@ -9,7 +9,7 @@
                 "needTag": "false",
                 "withdrawable": "true",
                 "rechargeable": "true",
-                "withdrawFee": "3",
+                " ": "3",
                 "extraWithdrawFee": "0",
                 "depositConfirm": "12",
                 "withdrawConfirm": "64",

@@ -3,7 +3,7 @@ import inspect
 import logging
 
 from .config import api_keys as API
-from .Types import Port, ExFactory, ExchangeConnectionError, BalanceObserver
+from .Types import Port, ExFactory, ExchangeConnectionError, BalanceObserver, Trader
 from .Observers.RegularObserver import RegularObserver
 from .Observers.OkxObserver import OkxObserver
 
@@ -12,6 +12,22 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 ROUTES: dict[str, dict[int, dict[str, str]]] = {}
+
+def log_caller_info(func):
+    async def wrapper(self, coin: str, change: float):
+        # Здесь можно добавить логику для определения источника
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back.f_back  # два уровня назад
+        caller_self = caller_frame.f_locals.get('self')
+        
+        source = "Unknown"
+        if caller_self and hasattr(caller_self, 'ex'):
+            source = getattr(caller_self.ex, 'id', 'Unknown')
+        
+        logger.info(f'Data from: {source}')
+        return await func(self, coin, change)
+    return wrapper
+
 
 async def run_observers_with_graceful_shutdown(observers):
     """Запускает обсерверы с graceful shutdown"""
@@ -42,21 +58,6 @@ async def run_observers_with_graceful_shutdown(observers):
         
         logger.info("✅ All observers stopped")
 
-def log_caller_info(func):
-    async def wrapper(self, coin: str, change: float):
-        # Здесь можно добавить логику для определения источника
-        frame = inspect.currentframe()
-        caller_frame = frame.f_back.f_back  # два уровня назад
-        caller_self = caller_frame.f_locals.get('self')
-        
-        source = "Unknown"
-        if caller_self and hasattr(caller_self, 'ex'):
-            source = getattr(caller_self.ex, 'id', 'Unknown')
-        
-        logger.info(f'Data from: {source}')
-        return await func(self, coin, change)
-    return wrapper
-
 class TestSubscriber:
     def __init__(self, observers: list[BalanceObserver]):
         for obs in observers:
@@ -82,8 +83,20 @@ async def main():
             
             pr = TestSubscriber(observers)
             
-            await run_observers_with_graceful_shutdown(observers)
-            
+            observer_task = asyncio.create_task(run_observers_with_graceful_shutdown(observers))
+
+            # Ждем несколько секунд, чтобы наблюдатели запустились
+            await asyncio.sleep(2)  # ждем 2 секунды
+
+            # bitget_trader = Trader(factory['bitget'])
+            # sell_order = await bitget_trader.sell('CELR', 500)
+            # buy_order = await bitget_trader.buy('CELR', 5)
+            # logger.info(sell_order)
+            # logger.info(buy_order)
+
+            # Ждем завершения наблюдателей (например, по сигналу)
+            await observer_task      
+
     except ExchangeConnectionError as e:
         logger.error(f"Ошибка подключения к биржам: {e}")
     except KeyboardInterrupt:

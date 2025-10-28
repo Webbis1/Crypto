@@ -73,8 +73,16 @@ async def main():
         async with ExFactory(API) as factory:
             logger.info("ExFactory successfully initialized, exchanges connected, and balances checked.")
             port: Port = Port(factory, ROUTES)
-            
+            from pprint import pprint
+
             observers = []
+            import json
+
+            for ex in factory:
+                with open(f'{ex.id}_output.json', 'w', encoding='utf-8') as f:
+                    info = await ex.fetch_currencies()
+                    json.dump(info['USDT'], f, ensure_ascii=False, indent=4)
+                    
             for ex in factory:
                 if ex.id == 'okx':
                     observers.append(OkxObserver(ex))
@@ -88,6 +96,8 @@ async def main():
             # Ждем несколько секунд, чтобы наблюдатели запустились
             await asyncio.sleep(2)  # ждем 2 секунды
 
+            # port.preparation('kucoin', )
+            
             # bitget_trader = Trader(factory['bitget'])
             # sell_order = await bitget_trader.sell('CELR', 500)
             # buy_order = await bitget_trader.buy('CELR', 5)

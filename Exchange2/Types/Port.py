@@ -14,7 +14,7 @@ class Port:
     class Destination:
         ex: ccxtpro.Exchange 
         coin_name: str 
-        chains: dict[str, str] 
+        chains: dict[str, str] # биржа отправления - сеть
             
         async def get_deposit_address(self, departure: str) -> str:
             network = self.chains.get(departure)
@@ -56,6 +56,13 @@ class Port:
         self.routes = routes
     
     async def preparation(self, destination_name: str, coin: tuple[int, str]) -> Destination | None:
+        """
+        Подготавливает данные для отправки монеты на указанную биржу.
+
+        :param destination_name: Название биржи прибытия (например, 'kucoin', 'binance')
+        :param coin: Кортеж из id и названия монеты, например (1, 'BTC')
+        :return: Объект Destination или None, если подготовка не удалась
+        """
         if destination_name not in self.routes:
             logger.warning(f'Route for {destination_name} not defined')
             return None

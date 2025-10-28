@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 import inspect
 import ccxt.pro as ccxtpro
+from typing import Protocol
 
 
 class BalanceObserver(ABC):
     
-    class Subscriber:
+    class Subscriber(Protocol):
         async def update_price(self, coin: str, change: float) -> None: ...
         
     def __init__(self, ex: ccxtpro.Exchange):

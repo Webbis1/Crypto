@@ -149,7 +149,8 @@ async def ex_to_csv(ex: ccxt.Exchange):
     
     print(f"Биржа {ex.id} обработана")
 
-async def main():
+def main():
+    '''
     try:
         tasks = []
         
@@ -169,7 +170,83 @@ async def main():
         print("Программа остановлена пользователем")
     except Exception as e:
         print(f"Другая ошибка: {e}")
+    '''
+    
+    #Проблема: разные названия сетей, из за этого не видит пересечения хотя оно есть
+    
+    exhanges = ['okx', 'kucoin', 'htx', 'bitget']
+    
+    for ex_destination in exhanges:   
+        filename_networks = f'exchanges_data/{ex_destination}/networks.csv'
+        filename_fees = f'exchanges_data/{ex_destination}/fees.csv'
+        
+        csv_headers = ['Coin ID'] + [ex for ex in exhanges if ex != ex_destination]
+        
+        csv_data_networks = []
+        csv_data_fees = []
+        
+        ex_destination_pd_data = pd.read_csv(f"exchanges_networks_data/{ex_destination}_networks_fee.csv")     
+        
+        coins_default = list(pd.read_csv('coins.csv')[ex_destination])
+        
+        COINS: bidict[str, int] = {} 
+    
+        coin_id = 0
+        for coin in coins_default:
+            COINS[coin] = coin_id
+            coin_id += 1
+            
+        for coin_name, coin_id in COINS.items():
+            csv_networks_line = []
+            csv_fees_line = []
+            
+            csv_networks_line.append(coin_id)
+            csv_fees_line.append(coin_id)
+            
+            for ex_departure in exhanges:            
+                if ex_destination == ex_departure:
+                    continue
+                
+                ex_departure_pd_data = pd.read_csv(f"exchanges_networks_data/{ex_departure}_networks_fee.csv")  
+                
+                ex_destination_coin_dict = dict(list(dict(ex_destination_pd_data.iloc[coin_id]).items())[2:])
+                ex_destination_coin_dict_without_nan = {}
+                
+                for key in ex_destination_coin_dict:
+                    if (not pd.isna(ex_destination_coin_dict[key])):
+                        ex_destination_coin_dict_without_nan[key] = ex_destination_coin_dict[key]
+                        
+                        
+                ex_departure_coin_dict = dict(list(dict(ex_departure_pd_data.iloc[coin_id]).items())[2:])
+                ex_departure_coin_dict_without_nan = {}
+                
+                for key in ex_departure_coin_dict:
+                    if (not pd.isna(ex_departure_coin_dict[key])):
+                        ex_departure_coin_dict_without_nan[key] = ex_departure_coin_dict[key]
+                
+                networks_intersection_dict = {}
+                
+                for key in ex_destination_coin_dict_without_nan:
+                    if key in ex_departure_coin_dict_without_nan.keys():
+                        networks_intersection_dict[key] = ex_departure_coin_dict_without_nan[key]
+                
+                if not networks_intersection_dict:
+                    min_network = ''
+                    min_fee = ''
+                else:
+                    min_network = min(networks_intersection_dict, key=networks_intersection_dict.get)
+                    min_fee = min(networks_intersection_dict.values())
+                
+                csv_networks_line.append(min_network)
+                csv_fees_line.append(min_fee)
+                
+            csv_data_networks.append(csv_networks_line)
+            csv_data_fees.append(csv_fees_line)
 
+
+        add_data_to_csv(filename_networks, csv_headers, csv_data_networks)
+        add_data_to_csv(filename_fees, csv_headers, csv_data_fees)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
+    #asyncio.run(main())

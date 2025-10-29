@@ -114,19 +114,19 @@ async def ex_to_csv(ex: ccxt.Exchange):
                 
                 answer[coin_id][network] = fee
                 
-        elif ex.id == 'gate':
-            host = "https://api.gateio.ws"
-            prefix = "/api/v4"
-            headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-
-            url = '/wallet/withdrawals'
-            query_param = ''
-            # for gen_sign implementation, refer to section Authentication above
-            sign_headers = gen_sign('GET', prefix + url, query_param)
-            headers.update(sign_headers)
-            r = requests.request('GET', host + prefix + url, headers=headers)
-            print('GATE:')
-            print(r.json())
+        elif ex.id == 'htx':
+            chains = info['chains']
+            for chain in chains:
+                network = chain['displayName']
+                fee = float(chain['transactFeeWithdraw'])
+                networks.add(network)
+                
+                coin_id = COINS[coin]
+                
+                if coin_id not in answer:
+                    answer[coin_id] = {}
+                
+                answer[coin_id][network] = fee
                 
         else:
             continue
@@ -172,17 +172,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    #asyncio.run(main())
-    
-    host = "https://api.gateio.ws"
-    prefix = "/api/v4"
-    headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-
-    url = '/wallet/withdrawals'
-    query_param = ''
-    # for gen_sign implementation, refer to section Authentication above
-    sign_headers = gen_sign('GET', prefix + url, query_param)
-    headers.update(sign_headers)
-    r = requests.request('GET', host + prefix + url, headers=headers)
-    from pprint import pprint
-    pprint(r.content)
+    asyncio.run(main())

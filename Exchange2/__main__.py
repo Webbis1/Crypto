@@ -68,51 +68,16 @@ class TestSubscriber:
     async def update_price(self, coin: str, change: float) -> None:
         logger.info(f'TestClass: data is update\n Coin - {coin}; Quantity - {change}')
 
-from bidict import bidict
-
-
-COINS: bidict[str, int] = {} 
-
-async def ex_to_csv(ex):
-    cur = await ex.fetch_currencies()
-    networks: set = set()
     
-    answer = dict[int, dict[str, float]]
-    for coin, data in cur:
-        if coin not in COINS:
-            continue
-        
-        info = data['info']
-        
-        if ex.id == 'bitget':
-            chains = info['chains']
-            for chain in chains:
-                network = chain['chain']
-                fee = chain['withdrawFee']
-                networks.add(network)
-                answer[COINS[coin]] = {network, fee}
-    
-    for coin in COINS:
-        for network in networks:
-            csv.print(answer.get(coin, {}).get(network, None))
-            
-    
-        
-
 async def main():    
     try:
         async with ExFactory(API) as factory:
             logger.info("ExFactory successfully initialized, exchanges connected, and balances checked.")
             port: Port = Port(factory, ROUTES)
-            # from pprint import pprint
+
 
             observers = []
-            import json
 
-            for ex in factory:
-                with open(f'{ex.id}_output.json', 'w', encoding='utf-8') as f:
-                    info = await ex.fetch_currencies()
-                    json.dump(info['USDT'], f, ensure_ascii=False, indent=4)
                     
             for ex in factory:
                 if ex.id == 'okx':

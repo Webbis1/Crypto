@@ -93,6 +93,8 @@ class ExFactory:
                 'sandbox': sandbox_mode,
                 'enableRateLimit': True,
                 'timeout': 30000,
+                'verify': False,  # Отключить проверку SSL
+                # 'verbose': True,
             }
             
             optional_params = ['password', 'uid', 'privateKey', 'walletAddress', 'options']

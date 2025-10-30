@@ -74,8 +74,10 @@ class Manager:
         self.wallet: dict[int, float] = {}
         self.trader: 'Trader'
         self.conditions: dict[int, asyncio.Condition] = {}  # coin_id -> condition
-        self.tusks: dict[int, asyncio.Task] = {}  # coin_id -> задача подписки
+        self.tusks: dict[int, asyncio.Task] = {}  # coin_id -> для каких монет есть нерешенные проблемы 
         self.solutions: dict[int, tuple[bool, float, int | str]] = {}  # coin_id -> (move_type, limit, target)
+        self.traceable_coins: set[int] = set()
+        
         
         self.reset_wallet()
         obs.subscribe(self)
@@ -83,6 +85,8 @@ class Manager:
         self.port: 'Port' = port
         
         self._name: str = name
+        
+        self.USDT = self._coins["USDT"]
     
     def get_name(self) -> str:
         return self._name
@@ -101,14 +105,16 @@ class Manager:
 
     async def subscribe_to_the_brain(self, coin_id: int):
         """Создает задачу, которая слушает решения от мозга для coin_id."""
-        self.brain.subscribe(self, coin_id)
-
+        if coin_id not in self.traceable_coins:
+            self.brain.subscribe(self, coin_id)
+            self.traceable_coins.add(coin_id)
 
 
     async def unsubscribe_from_the_brain(self, coin_id: int):
         """Отменяет задачу подписки на мозг."""
-        self.brain.unsubscribe(self, coin_id)
-
+        if coin_id in self.traceable_coins:
+            self.brain.unsubscribe(self, coin_id)
+            self.traceable_coins.remove(coin_id)
 
     async def _start_wait_task(self, coin_id: int):
         """Создает задачу, которая ждет, пока баланс >= limit."""
@@ -126,6 +132,12 @@ class Manager:
             
             # Удаляем задачу из списка (опционально)
             self.tusks.pop(coin_id, None)
+            
+            sol = self.solutions[self.USDT]
+            
+            if not sol[0]: # обмен на другую валюту
+                if sol[2] != coin_id: # обмениваем не на нашу валюту
+                    await self.unsubscribe_from_the_brain(coin_id)
 
         task = asyncio.create_task(wait_and_execute(), name=f"wait_task_{coin_id}")
         self.tusks[coin_id] = task
@@ -160,12 +172,35 @@ class Manager:
         
         
     async def update_trade_solution(self, coin_id: int, target_coin_id: int, rate: float):
-        if coin_id == self._coins['USDT']:
-            if coin_id in self.solutions: ...
-            else:
-                self.solutions
-        elif coin_id in self.solutions: ...
-        else: ...
+        # Проверяем, разрешено ли обновление для этой монеты
+        if coin_id not in self.traceable_coins:
+            return  # или можно вызвать raise, если это ошибка
+
+        # Обновляем решение для пары
+
+        # Если coin_id — это USDT, проверяем и управляем подпиской
+        if coin_id == self.USDT:
+            await self._manage_usdt_subscription(target_coin_id)
+
+        self.solutions[coin_id] = (0, rate, target_coin_id)
+        # Уведомляем ожидающие задачи
+        condition = self._get_condition(coin_id)
+        async with condition:
+            condition.notify_all()
+
+    async def _manage_usdt_subscription(self, new_target_coin_id: int):
+        """Управляет подпиской для USDT на основе текущего и нового таргета."""
+        current_solution = self.solutions.get(self.USDT)
+
+        if current_solution:
+            _, _, current_target = current_solution
+            if current_target != new_target_coin_id:
+                
+                await self.unsubscribe_from_the_brain(current_target)
+                await self.subscribe_to_the_brain(new_target_coin_id)
+        else:
+            # Если решения не было — подписываемся впервые
+            await self.subscribe_to_the_brain(new_target_coin_id)
                 
             
         
@@ -176,4 +211,10 @@ class Manager:
             self.wallet[coin_id] = old_balance + new_value
             if coin_id not in self.tusks:
                 await self._start_wait_task(coin_id)
+            
+            condition = self._get_condition(coin_id)
+            async with condition:
+                condition.notify_all() 
+                
+            await self.subscribe_to_the_brain()
                 

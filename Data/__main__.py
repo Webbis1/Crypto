@@ -23,7 +23,7 @@ all_ex: dict[str, set[Coin]] = {}
 all_adresess: dict[str, int] = {}
 actual_adresess: dict[str, int] = {}
 all_coin_names: defaultdict[str, bidict[int, str]] = defaultdict(bidict)
-all_network_names: defaultdict[str, bidict[int, str]] = defaultdict(bidict)
+all_network_names: defaultdict[str, bidict[int, str]] = defaultdict(bidict) # не придумал
 
 best_transfer: defaultdict[str, dict[str, dict[int, Coin]]] = defaultdict(lambda: defaultdict(dict))
 
@@ -35,11 +35,9 @@ from collections import defaultdict
 from typing import DefaultDict, Dict
 
 
-
 def create_exchange_csv_tables(
     best_transfer: DefaultDict[str, Dict[str, Dict[int, Coin]]], 
-    output_dir: str = "output"
-):
+    output_dir: str = "output"):
     """
     Создает CSV таблицы для каждой биржи из best_transfer с группировкой по ID
     
@@ -426,17 +424,11 @@ async def main():
                         for addr in addresess: all_adresess[addr] = temp_id
                         all_coin_names[ex.id][temp_id] = coin_name
                     
-                    # if coin_name == "USDT": print(coin)
                 all_ex[ex.id] = coins
                 save_coins_to_csv(coins, f"Data/{ex}_coins.csv")
 
-
-            # merge = all_ex['binance'] & all_ex['bitget']
-            # save_coins_to_csv(merge, f"Data/merge_coins.csv")
-
-            # pprint(all_adresess)
             save_coin_names_to_csv_detailed(all_coin_names)
-            # print_reverse_mapping(all_adresess)
+
             
     except ExchangeConnectionError as e:
         logger.error(f"Ошибка подключения к биржам: {e}")

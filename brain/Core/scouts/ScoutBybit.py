@@ -14,9 +14,7 @@ class ScoutBybit(Scout):
                     symbols = [f"{coin.name}/USDT" for coin in self._coins]
                     
                     chunks = [symbols[i:i+10] for i in range(0, len(symbols), 10)]
-                    # if len(chunks) > 1:
-                    #     logger.info(f"Split into {len(chunks)} chunks")
-                    
+
                     for chunk in chunks:
                         try:
                             tickers = await self.ccxt_exchange.watch_tickers(chunk, params)

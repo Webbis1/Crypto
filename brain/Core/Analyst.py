@@ -109,8 +109,8 @@ class Analyst:
             except Exception as e:
                 self.logger.error(f"Error recalculating {coin.name}: {e}")
             
-            if update_count % 1000 == 0:
-                self.logger.info(f"Processed {update_count} updates")
+            # if update_count % 1000 == 0:
+                # self.logger.info(f"Processed {update_count} updates")
     
     async def _coin_culc(self, coin: Coin) -> tuple[Exchange, Exchange, float]:
         async with self.coin_locks[coin]:

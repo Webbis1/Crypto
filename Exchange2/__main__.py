@@ -89,18 +89,8 @@ async def main():
             
             observer_task = asyncio.create_task(run_observers_with_graceful_shutdown(observers))
 
-            # Ждем несколько секунд, чтобы наблюдатели запустились
             await asyncio.sleep(2)  # ждем 2 секунды
 
-            # port.preparation('kucoin', )
-            
-            # bitget_trader = Trader(factory['bitget'])
-            # sell_order = await bitget_trader.sell('CELR', 500)
-            # buy_order = await bitget_trader.buy('CELR', 5)
-            # logger.info(sell_order)
-            # logger.info(buy_order)
-
-            # Ждем завершения наблюдателей (например, по сигналу)
             await observer_task      
 
     except ExchangeConnectionError as e:
